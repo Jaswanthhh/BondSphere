@@ -1,0 +1,40 @@
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+import { resolve } from 'path';
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  base: '/',
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src')
+    }
+  },
+  css: {
+    modules: {
+      localsConvention: 'camelCase'
+    },
+    preprocessorOptions: {
+      less: {
+        javascriptEnabled: true,
+      },
+    }
+  },
+  server: {
+    port: 5179,
+    strictPort: false,
+    open: true,
+    host: true
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: './index.html'
+      }
+    }
+  }
+}); 
