@@ -12,7 +12,7 @@ export const CreateListing = ({ onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     title: '',
     destination: '',
-    startDate: '',
+    startDate: '',  
     endDate: '',
     type: 'flight',
     maxParticipants: 1,
