@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Bell } from 'lucide-react';
 
 export const Notifications = ({ isOpen, onClose }) => {
