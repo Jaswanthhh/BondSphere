@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Poll in {{communityName}}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      padding: 20px 0;
+      background-color: #4a90e2;
+      color: white;
+    }
+    .content {
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #4a90e2;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .poll-preview {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .poll-question {
+      font-size: 20px;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .poll-options {
+      margin: 15px 0;
+    }
+    .poll-option {
+      background-color: #f0f7ff;
+      border: 1px solid #4a90e2;
+      border-radius: 4px;
+      padding: 10px;
+      margin: 10px 0;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .poll-option:hover {
+      background-color: #e0f0ff;
+    }
+    .poll-stats {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+    }
+    .stat-label {
+      color: #666;
+    }
+    .stat-value {
+      font-weight: bold;
+      color: #4a90e2;
+    }
+    .community-info {
+      background-color: #f0f7ff;
+      border-radius: 4px;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>New Poll in {{communityName}}</h1>
+    </div>
+    <div class="content">
+      <p>Hello {{name}},</p>
+      <p>{{creatorName}} has created a new poll in {{communityName}} that needs your input!</p>
+      
+      <div class="poll-preview">
+        <h2 class="poll-question">{{pollQuestion}}</h2>
+        
+        <div class="poll-options">
+          {{#each options}}
+          <div class="poll-option">
+            {{this.text}}
+          </div>
+          {{/each}}
+        </div>
+
+        <div class="poll-stats">
+          <div class="stat">
+            <span class="stat-label">Total Votes:</span>
+            <span class="stat-value">{{totalVotes}}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Time Remaining:</span>
+            <span class="stat-value">{{timeRemaining}}</span>
+          </div>
+        </div>
+
+        <p style="text-align: center;">
+          <a href="{{pollUrl}}" class="button">Vote Now</a>
+        </p>
+      </div>
+
+      <div class="community-info">
+        <h3>About {{communityName}}</h3>
+        <p>{{communityDescription}}</p>
+        <p><strong>Members:</strong> {{memberCount}}</p>
+      </div>
+
+      <p>Your opinion matters! Cast your vote and join the discussion.</p>
+    </div>
+    <div class="footer">
+      <p>This email was sent by BondSphere. Please do not reply to this email.</p>
+      <p>To manage your email preferences, <a href="{{preferencesUrl}}">click here</a>.</p>
+    </div>
+  </div>
+</body>
+</html> 
