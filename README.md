@@ -61,36 +61,6 @@ npm run dev
 - Share photos and updates
 - Organize community events
 
-## 🤝 Contributing
-
-We welcome contributions to BondSphere! Please follow these steps:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Anima](https://animaapp.com/) - For the initial project setup
-- [Unsplash](https://unsplash.com) - For the beautiful images
-- [TailwindCSS](https://tailwindcss.com) - For the awesome styling framework
-- [Lucide](https://lucide.dev) - For the beautiful icons
-
-## 📧 Contact
-
-For any questions or suggestions, please reach out at:
-- Email: Jaswanth2jaswanth@gmail.com
-
----
-
-Made with ❤️ by Jaswanth Chappidi
-
 
 
 # BondSphere Backend
@@ -177,3 +147,34 @@ backend/
 3. Commit your changes
 4. Push to the branch
 5. Create a new Pull Request 
+
+
+## 🤝 Contributing
+
+We welcome contributions to BondSphere! Please follow these steps:
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Anima](https://animaapp.com/) - For the initial project setup
+- [Unsplash](https://unsplash.com) - For the beautiful images
+- [TailwindCSS](https://tailwindcss.com) - For the awesome styling framework
+- [Lucide](https://lucide.dev) - For the beautiful icons
+
+## 📧 Contact
+
+For any questions or suggestions, please reach out at:
+- Email: Jaswanth2jaswanth@gmail.com
+
+---
+
+Made with ❤️ by Jaswanth Chappidi
