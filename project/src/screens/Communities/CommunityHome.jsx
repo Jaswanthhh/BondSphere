@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Users, Shield, Lock, UserPlus, Info, Settings, Send, Phone, Video, Smile, Paperclip, X } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { communitiesApi, communityChatApi } from '../../services/api';
 
 export const CommunityHome = () => {
   const navigate = useNavigate();
@@ -9,42 +10,63 @@ export const CommunityHome = () => {
   const [message, setMessage] = useState('');
   const [showCallModal, setShowCallModal] = useState(false);
   const [callType, setCallType] = useState(null);
-  
-  // In a real app, you would fetch this data based on the communityId
-  const community = {
-    id: communityId,
-    name: 'Tech Innovators Hub',
-    description: 'A verified community for professional tech innovators. Requires work email verification.',
-    members: 1200,
-    category: 'tech',
-    image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c',
-    type: 'verified',
-    isJoined: false
-  };
+  const [community, setCommunity] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [error, setError] = useState('');
+  const messagesEndRef = useRef(null);
 
-  const [messages] = useState([
-    {
-      id: '1',
-      userId: 'user1',
-      userName: 'Alex Thompson',
-      userAvatar: 'https://i.pravatar.cc/150?img=1',
-      content: 'Hey everyone! Welcome to our community chat!',
-      timestamp: '2 hours ago'
-    },
-    {
-      id: '2',
-      userId: 'user2',
-      userName: 'Sarah Chen',
-      userAvatar: 'https://i.pravatar.cc/150?img=2',
-      content: 'Thanks for having me here. Looking forward to connecting with everyone!',
-      timestamp: '1 hour ago'
+  if (!communityId) {
+    return <div className="text-red-500">Invalid community. Please select a valid community.</div>;
+  }
+
+  useEffect(() => {
+    const fetchCommunity = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await communitiesApi.getCommunityDetails(communityId);
+        setCommunity(res.data);
+      } catch (err) {
+        setError('Failed to load community info.');
+      }
+      setLoading(false);
+    };
+    fetchCommunity();
+  }, [communityId]);
+
+  useEffect(() => {
+    if (!communityId) return;
+    if (activeTab === 'chat') {
+      const fetchMessages = async () => {
+        setLoadingMessages(true);
+        setError('');
+        try {
+          const res = await communityChatApi.getMessages(communityId);
+          setMessages(res.data);
+        } catch (err) {
+          setError('Failed to load messages.');
+        }
+        setLoadingMessages(false);
+      };
+      fetchMessages();
     }
-  ]);
+  }, [activeTab, communityId]);
 
-  const handleSendMessage = () => {
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendMessage = async () => {
     if (!message.trim()) return;
-    // Add message handling logic here
-    setMessage('');
+    try {
+      const res = await communityChatApi.sendMessage(communityId, message);
+      setMessages([...messages, res.data]);
+      setMessage('');
+    } catch (err) {
+      setError('Failed to send message.');
+    }
   };
 
   const handleStartCall = (type) => {
@@ -59,6 +81,19 @@ export const CommunityHome = () => {
   const handleViewDetails = () => {
     navigate(`/home/communities/${communityId}/details`);
   };
+
+  const handleJoin = async () => {
+    try {
+      await communitiesApi.joinCommunity(communityId);
+      setCommunity({ ...community, isJoined: true });
+    } catch (err) {
+      setError('Failed to join community.');
+    }
+  };
+
+  if (loading) return <div>Loading community...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+  if (!community) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,6 +122,8 @@ export const CommunityHome = () => {
                   : 'bg-blue-600 text-white'
               }`}
               aria-label={community.isJoined ? 'Leave community' : 'Join community'}
+              onClick={handleJoin}
+              disabled={community.isJoined}
             >
               <UserPlus className="w-4 h-4" />
               {community.isJoined ? 'Joined' : 'Join'}
@@ -126,12 +163,10 @@ export const CommunityHome = () => {
             <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">About</h2>
               <p className="text-gray-600 mb-6">{community.description}</p>
-              
               <div className="flex items-center text-sm text-gray-500 mb-4">
                 <Users className="w-4 h-4 mr-2" />
-                <span>{community.members.toLocaleString()} members</span>
+                <span>{community.members?.toLocaleString()} members</span>
               </div>
-
               <div className="space-y-4">
                 <button
                   onClick={handleViewDetails}
@@ -207,22 +242,31 @@ export const CommunityHome = () => {
                 <div className="flex flex-col h-[600px]">
                   {/* Chat Messages */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {messages.map(msg => (
-                      <div key={msg.id} className="flex items-start gap-3">
-                        <img
-                          src={msg.userAvatar}
-                          alt={msg.userName}
-                          className="w-8 h-8 rounded-full"
-                        />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">{msg.userName}</span>
-                            <span className="text-sm text-gray-500">{msg.timestamp}</span>
+                    {loadingMessages ? (
+                      <div className="text-center text-gray-500 py-8">Loading messages...</div>
+                    ) : error ? (
+                      <div className="text-center text-red-500 py-8">{error}</div>
+                    ) : messages.length === 0 ? (
+                      <div className="text-center text-gray-500 py-8">No messages yet</div>
+                    ) : (
+                      messages.map(msg => (
+                        <div key={msg.id} className="flex items-start gap-3">
+                          <img
+                            src={msg.userAvatar}
+                            alt={msg.userName}
+                            className="w-8 h-8 rounded-full"
+                          />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">{msg.userName}</span>
+                              <span className="text-sm text-gray-500">{msg.timestamp}</span>
+                            </div>
+                            <p className="text-gray-700 mt-1">{msg.content}</p>
                           </div>
-                          <p className="text-gray-700 mt-1">{msg.content}</p>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
                   </div>
 
                   {/* Message Input */}

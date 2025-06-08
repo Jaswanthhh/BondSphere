@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload } from 'lucide-react';
 import PropTypes from 'prop-types';
+import { travelApi } from '../../services/api';
 
 /**
  * CreateListing component for creating new travel listings
@@ -22,15 +23,20 @@ export const CreateListing = ({ onClose, onSubmit }) => {
   });
 
   const [interestInput, setInterestInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
     
     // Validate dates
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
     if (end < start) {
-      alert('End date must be after start date');
+      setError('End date must be after start date');
+      setLoading(false);
       return;
     }
 
@@ -44,10 +50,18 @@ export const CreateListing = ({ onClose, onSubmit }) => {
       year: 'numeric'
     })}`;
 
-    onSubmit({
-      ...formData,
-      dates
-    });
+    try {
+      // Remove MongoDB fields if present
+      const { _id, createdAt, __v, ...cleanData } = formData;
+      const res = await travelApi.createListing({
+        ...cleanData,
+        dates
+      });
+      onSubmit(res.data); // Pass backend response to parent
+    } catch (err) {
+      setError(err.response?.data?.msg || 'Failed to create listing');
+    }
+    setLoading(false);
   };
 
   const addInterest = (e) => {
@@ -265,11 +279,13 @@ export const CreateListing = ({ onClose, onSubmit }) => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+              disabled={loading}
             >
-              Create Listing
+              {loading ? 'Creating...' : 'Create Listing'}
             </button>
           </div>
+          {error && <div className="text-red-500 text-sm text-center">{error}</div>}
         </form>
       </div>
     </div>

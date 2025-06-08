@@ -2,69 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Share2, Users, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { ShareLocationModal } from './ShareLocationModal';
+import { locationApi } from '../../services/api';
 
 export const LocationSharing = () => {
   const [isSharing, setIsSharing] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [sharedLocations, setSharedLocations] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [sharingWith, setSharingWith] = useState([]);
   const [locationUpdateInterval, setLocationUpdateInterval] = useState(null);
 
-  // Mock contacts data
-  const contacts = [
-    { id: '1', name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1' },
-    { id: '2', name: 'Jane Smith', avatar: 'https://i.pravatar.cc/150?img=2' },
-    { id: '3', name: 'Mike Johnson', avatar: 'https://i.pravatar.cc/150?img=3' },
-    { id: '4', name: 'Sarah Williams', avatar: 'https://i.pravatar.cc/150?img=4' },
-    { id: '5', name: 'David Brown', avatar: 'https://i.pravatar.cc/150?img=5' },
-    { id: '6', name: 'Emily Davis', avatar: 'https://i.pravatar.cc/150?img=6' },
-  ];
-
-  // Mock data for demonstration
-  const mockSharedLocations = [
-    {
-      userId: '1',
-      userName: 'John Doe',
-      location: {
-        latitude: 37.7749,
-        longitude: -122.4194,
-        timestamp: Date.now() - 3600000, // 1 hour ago
-      },
-    },
-    {
-      userId: '2',
-      userName: 'Jane Smith',
-      location: {
-        latitude: 37.7833,
-        longitude: -122.4167,
-        timestamp: Date.now() - 1800000, // 30 minutes ago
-      },
-    },
-  ];
-
   useEffect(() => {
-    // Load mock data
-    setSharedLocations(mockSharedLocations);
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [contactsRes, sharedRes] = await Promise.all([
+          locationApi.getContacts(),
+          locationApi.getSharedLocations(),
+        ]);
+        setContacts(contactsRes.data);
+        setSharedLocations(sharedRes.data);
+      } catch (err) {
+        setError('Failed to load contacts or shared locations.');
+      }
+      setLoading(false);
+    };
+    fetchData();
   }, []);
 
-  // Update location periodically when sharing is active
   useEffect(() => {
     if (isSharing && currentLocation) {
-      // Clear any existing interval
       if (locationUpdateInterval) {
         clearInterval(locationUpdateInterval);
       }
-
-      // Set up a new interval to update location every 10 seconds
       const interval = window.setInterval(() => {
         updateLocation();
       }, 10000);
-
       setLocationUpdateInterval(interval);
-
-      // Clean up interval on unmount or when sharing stops
       return () => {
         clearInterval(interval);
       };
@@ -80,64 +58,29 @@ export const LocationSharing = () => {
           maximumAge: 0,
         });
       });
-
       const newLocation = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         timestamp: Date.now(),
       };
-
       setCurrentLocation(newLocation);
-
-      // Update shared locations if we're sharing with anyone
-      if (sharingWith.length > 0) {
-        updateSharedLocations(newLocation);
+      if (isSharing) {
+        await locationApi.updateLocation(newLocation);
+        // Optionally refresh shared locations
+        fetchSharedLocations();
       }
     } catch (err) {
-      console.error('Error updating location:', err);
+      setError('Error updating location.');
     }
   };
 
-  const updateSharedLocations = (location) => {
-    setSharedLocations(prevLocations => {
-      // Create a new array with updated locations
-      const updatedLocations = [...prevLocations];
-      
-      // Update locations for users we're sharing with
-      sharingWith.forEach(userId => {
-        const existingIndex = updatedLocations.findIndex(loc => loc.userId === userId);
-        
-        if (existingIndex >= 0) {
-          // Update existing location
-          updatedLocations[existingIndex] = {
-            ...updatedLocations[existingIndex],
-            location: {
-              ...location,
-              // Add a small random offset to simulate movement
-              latitude: location.latitude + (Math.random() - 0.5) * 0.001,
-              longitude: location.longitude + (Math.random() - 0.5) * 0.001,
-            }
-          };
-        } else {
-          // Add new location for this user
-          const contact = contacts.find(c => c.id === userId);
-          if (contact) {
-            updatedLocations.push({
-              userId,
-              userName: contact.name,
-              location: {
-                ...location,
-                // Add a small random offset to simulate movement
-                latitude: location.latitude + (Math.random() - 0.5) * 0.001,
-                longitude: location.longitude + (Math.random() - 0.5) * 0.001,
-              }
-            });
-          }
-        }
-      });
-      
-      return updatedLocations;
-    });
+  const fetchSharedLocations = async () => {
+    try {
+      const sharedRes = await locationApi.getSharedLocations();
+      setSharedLocations(sharedRes.data);
+    } catch (err) {
+      setError('Failed to refresh shared locations.');
+    }
   };
 
   const startSharing = async () => {
@@ -149,19 +92,18 @@ export const LocationSharing = () => {
           maximumAge: 0,
         });
       });
-
       const newLocation = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         timestamp: Date.now(),
       };
-
       setCurrentLocation(newLocation);
       setIsSharing(true);
       setError(null);
+      await locationApi.updateLocation(newLocation);
+      fetchSharedLocations();
     } catch (err) {
       setError('Unable to access location. Please ensure location services are enabled.');
-      console.error('Error getting location:', err);
     }
   };
 
@@ -169,24 +111,23 @@ export const LocationSharing = () => {
     setIsSharing(false);
     setCurrentLocation(null);
     setSharingWith([]);
-    
-    // Clear the update interval
     if (locationUpdateInterval) {
       clearInterval(locationUpdateInterval);
       setLocationUpdateInterval(null);
     }
   };
 
-  const handleShareLocation = (selectedContacts) => {
+  const handleShareLocation = async (selectedContacts) => {
     setSharingWith(selectedContacts);
-    
-    // If we have a current location, update the shared locations immediately
-    if (currentLocation) {
-      updateSharedLocations(currentLocation);
+    try {
+      await locationApi.shareLocation({
+        contacts: selectedContacts,
+        location: currentLocation,
+      });
+      fetchSharedLocations();
+    } catch (err) {
+      setError('Failed to share location.');
     }
-    
-    // Show a success message
-    alert(`Location shared with ${selectedContacts.length} contact(s)!`);
   };
 
   const formatTimeAgo = (timestamp) => {
@@ -200,112 +141,64 @@ export const LocationSharing = () => {
     return `${days}d ago`;
   };
 
+  if (loading) return <div>Loading location sharing...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Location Sharing</h1>
-            <div className="flex gap-3">
-              {isSharing && (
-                <Button
-                  onClick={() => setIsShareModalOpen(true)}
-                  className="bg-green-500 hover:bg-green-600 text-white"
-                >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share with Friends
-                </Button>
-              )}
-              <Button
-                onClick={isSharing ? stopSharing : startSharing}
-                className={`${
-                  isSharing ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
-                } text-white`}
-              >
-                {isSharing ? 'Stop Sharing' : 'Start Sharing'}
-              </Button>
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6">
-              {error}
-            </div>
-          )}
-
-          {currentLocation && (
-            <div className="bg-blue-50 p-4 rounded-xl mb-6">
-              <div className="flex items-center gap-2 text-blue-700 mb-2">
-                <MapPin className="w-5 h-5" />
-                <span className="font-medium">Your Location</span>
-              </div>
-              <p className="text-gray-600">
-                Latitude: {currentLocation.latitude.toFixed(6)}
-                <br />
-                Longitude: {currentLocation.longitude.toFixed(6)}
-                <br />
-                Last updated: {formatTimeAgo(currentLocation.timestamp)}
-              </p>
-              {sharingWith.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-blue-200">
-                  <p className="text-sm text-blue-700">
-                    Currently sharing with {sharingWith.length} {sharingWith.length === 1 ? 'contact' : 'contacts'}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Shared Locations
-            </h2>
-            {sharedLocations.length > 0 ? (
-              sharedLocations.map((shared) => (
-                <div
-                  key={shared.userId}
-                  className="bg-gray-50 p-4 rounded-xl flex items-start justify-between"
-                >
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <MapPin className="w-4 h-4 text-gray-500" />
-                      <span className="font-medium text-gray-900">{shared.userName}</span>
-                      {sharingWith.includes(shared.userId) && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                          Active
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-600 text-sm">
-                      Latitude: {shared.location.latitude.toFixed(6)}
-                      <br />
-                      Longitude: {shared.location.longitude.toFixed(6)}
-                      <br />
-                      Last updated: {formatTimeAgo(shared.location.timestamp)}
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share
-                  </Button>
-                </div>
-              ))
-            ) : (
-              <div className="bg-gray-50 p-4 rounded-xl text-center text-gray-500">
-                No shared locations yet. Start sharing your location to see updates here.
-              </div>
-            )}
+    <div className="max-w-2xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+        <MapPin className="w-6 h-6 text-blue-500" /> Location Sharing
+      </h2>
+      <div className="mb-4 flex gap-3">
+        {!isSharing ? (
+          <Button onClick={startSharing}>
+            <Share2 className="w-4 h-4 mr-2" /> Start Sharing My Location
+          </Button>
+        ) : (
+          <Button variant="outline" onClick={stopSharing}>
+            <X className="w-4 h-4 mr-2" /> Stop Sharing
+          </Button>
+        )}
+        {isSharing && (
+          <Button onClick={() => setIsShareModalOpen(true)}>
+            <Users className="w-4 h-4 mr-2" /> Share With Contacts
+          </Button>
+        )}
+      </div>
+      {isSharing && currentLocation && (
+        <div className="mb-4 p-3 bg-blue-50 rounded-xl">
+          <div className="text-sm text-gray-700">
+            <span className="font-medium">Your current location:</span> <br />
+            Latitude: {currentLocation.latitude.toFixed(6)}, Longitude: {currentLocation.longitude.toFixed(6)}
           </div>
         </div>
+      )}
+      <h3 className="text-lg font-semibold mt-6 mb-2">Shared Locations</h3>
+      <div className="space-y-3">
+        {sharedLocations.length === 0 ? (
+          <div className="text-gray-500">No locations shared yet.</div>
+        ) : (
+          sharedLocations.map(loc => (
+            <div key={loc.userId} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+              <img src={loc.avatar} alt={loc.userName} className="w-10 h-10 rounded-full" />
+              <div className="flex-1">
+                <div className="font-medium text-gray-900">{loc.userName}</div>
+                <div className="text-sm text-gray-600">
+                  Lat: {loc.location.latitude.toFixed(5)}, Lng: {loc.location.longitude.toFixed(5)}
+                </div>
+                <div className="text-xs text-gray-400">{formatTimeAgo(loc.location.timestamp)}</div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
-
       <ShareLocationModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         onShare={handleShareLocation}
         currentLocation={currentLocation}
+        contacts={contacts}
       />
     </div>
   );
-}; 
+} 

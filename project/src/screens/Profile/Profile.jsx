@@ -1,66 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Calendar, Briefcase, Building2, Globe, Linkedin, Twitter, Instagram, Facebook, Edit2, Save, X } from 'lucide-react';
 import { JobProfile } from './JobProfile';
+import { users as usersApi } from '../../services/api';
 
 export const Profile = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
   const [profileData, setProfileData] = useState({
-    name: 'John Doe',
-    title: 'Software Engineer',
-    company: 'Tech Corp',
-    location: 'San Francisco, CA',
-    email: 'john.doe@example.com',
-    phone: '+1 (555) 123-4567',
-    bio: 'Experienced software engineer with a passion for building scalable applications.',
-    skills: ['React', 'TypeScript', 'Node.js', 'Python', 'AWS'],
-    experience: [
-      {
-        title: 'Senior Software Engineer',
-        company: 'Tech Corp',
-        period: '2020 - Present',
-        description: 'Leading development of enterprise applications.'
-      },
-      {
-        title: 'Software Engineer',
-        company: 'StartUp Inc',
-        period: '2018 - 2020',
-        description: 'Developed and maintained web applications.'
-      }
-    ],
-    education: [
-      {
-        degree: 'Master of Science in Computer Science',
-        school: 'Stanford University',
-        period: '2016 - 2018'
-      },
-      {
-        degree: 'Bachelor of Science in Computer Science',
-        school: 'University of California, Berkeley',
-        period: '2012 - 2016'
-      }
-    ],
-    socialLinks: {
-      linkedin: 'https://linkedin.com/in/johndoe',
-      twitter: 'https://twitter.com/johndoe',
-      github: 'https://github.com/johndoe'
-    }
+    skills: [],
+    experience: [],
+    education: [],
+    availability: [],
+    preferredRole: [],
+    salary: [],
+    workType: [],
+    about: '',
+    socialLinks: { linkedin: '', twitter: '', github: '' },
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      try {
+        const res = await usersApi.getProfile('me');
+        setProfileData({
+          ...res.data,
+          socialLinks: {
+            linkedin: res.data?.socialLinks?.linkedin || res.data?.linkedin || '',
+            twitter: res.data?.socialLinks?.twitter || res.data?.twitter || '',
+            github: res.data?.socialLinks?.github || res.data?.github || '',
+          },
+        });
+      } catch (err) {
+        setProfileData({
+          skills: [],
+          experience: [],
+          education: [],
+          availability: [],
+          preferredRole: [],
+          salary: [],
+          workType: [],
+          about: '',
+          socialLinks: { linkedin: '', twitter: '', github: '' },
+        });
+        setError('Failed to load profile');
+      }
+      setLoading(false);
+    };
+    fetchProfile();
+  }, []);
 
   const handleEdit = () => {
     setIsEditing(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsEditing(false);
-    // Here you would typically save the changes to your backend
+    try {
+      await usersApi.updateProfile(profileData._id || 'me', profileData);
+    } catch (err) {
+      setError('Failed to update profile');
+    }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Reset form data if needed
+    // Optionally refetch profile to reset changes
   };
 
   const handleInputChange = (e) => {
@@ -71,6 +80,10 @@ export const Profile = () => {
     }));
   };
 
+  if (loading) return <div>Loading profile...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+  if (!profileData) return <div className="text-red-500">No profile data found.</div>;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -80,9 +93,10 @@ export const Profile = () => {
             <div className="absolute -bottom-16 left-8">
               <div className="h-32 w-32 rounded-full border-4 border-white bg-white overflow-hidden">
                 <img
-                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                  src={profileData.avatar || '/default-avatar.png'}
                   alt="Profile"
                   className="h-full w-full object-cover"
+                  onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                 />
               </div>
             </div>
@@ -216,7 +230,7 @@ export const Profile = () => {
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Skills</h2>
                   <div className="flex flex-wrap gap-2">
-                    {profileData.skills.map((skill, index) => (
+                    {Array.isArray(profileData.skills) && profileData.skills.map((skill, index) => (
                       <span
                         key={index}
                         className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
@@ -231,7 +245,7 @@ export const Profile = () => {
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Social Links</h2>
                   <div className="space-y-2">
                     <a
-                      href={profileData.socialLinks.linkedin}
+                      href={profileData.socialLinks?.linkedin || ''}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center text-gray-600 hover:text-blue-600"
@@ -240,7 +254,7 @@ export const Profile = () => {
                       LinkedIn
                     </a>
                     <a
-                      href={profileData.socialLinks.twitter}
+                      href={profileData.socialLinks?.twitter || ''}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center text-gray-600 hover:text-blue-600"
@@ -249,7 +263,7 @@ export const Profile = () => {
                       Twitter
                     </a>
                     <a
-                      href={profileData.socialLinks.github}
+                      href={profileData.socialLinks?.github || ''}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center text-gray-600 hover:text-blue-600"

@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Image, Video, PlaySquare, Heart, MessageCircle, Share2, MoreHorizontal, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { postsApi, storiesApi } from '../../services/api';
 
 export const Feed = () => {
   const [postContent, setPostContent] = useState('');
@@ -10,112 +11,26 @@ export const Feed = () => {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const fileInputRef = useRef(null);
   const storyFileInputRef = useRef(null);
-  const [stories, setStories] = useState([
-    {
-      id: 1,
-      user: {
-        name: 'Jimmy Maxwell',
-        avatar: 'https://i.pravatar.cc/150?img=1',
-        time: '12 April at 09:28 PM'
-      },
-      media: {
-        type: 'image',
-        url: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba'
+  const [stories, setStories] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      setLoading(true);
+      try {
+        const res = await postsApi.getAll();
+        setPosts(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        setPosts([]);
+        setError('Failed to load posts');
       }
-    },
-    {
-      id: 2,
-      user: {
-        name: 'Joshua Hunt',
-        avatar: 'https://i.pravatar.cc/150?img=2',
-        time: '12 April at 09:28 PM'
-      },
-      media: {
-        type: 'image',
-        url: 'https://images.unsplash.com/photo-1682687221038-404670f09727'
-      }
-    },
-    {
-      id: 3,
-      user: {
-        name: 'Danny Moore',
-        avatar: 'https://i.pravatar.cc/150?img=3',
-        time: '12 April at 09:28 PM'
-      },
-      media: {
-        type: 'image',
-        url: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba'
-      }
-    },
-    {
-      id: 4,
-      user: {
-        name: 'Jason Gutierrez',
-        avatar: 'https://i.pravatar.cc/150?img=4',
-        time: '12 April at 09:28 PM'
-      },
-      media: {
-        type: 'image',
-        url: 'https://images.unsplash.com/photo-1682687221038-404670f09727'
-      }
-    }
-  ]);
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      user: {
-        name: 'John Busten',
-        avatar: 'https://i.pravatar.cc/150?img=5',
-        time: '12 April at 09:28 PM'
-      },
-      content: 'The greatest glory in living lies not in never falling, but in rising every time we fall.\n-Nelson Mandela',
-      likes: 120000,
-      comments: 25,
-      shares: 231,
-      isLiked: false,
-      commentsList: [
-        {
-          id: 1,
-          user: {
-            name: 'Lucas West',
-            avatar: 'https://i.pravatar.cc/150?img=6'
-          },
-          content: 'My all time favorite quote ❤️',
-          likes: 5,
-          isLiked: false
-        }
-      ]
-    },
-    {
-      id: 2,
-      user: {
-        name: 'Sarah Parker',
-        avatar: 'https://i.pravatar.cc/150?img=7',
-        time: '12 April at 08:15 PM'
-      },
-      content: 'Just finished setting up my new workspace! 🎨✨',
-      media: {
-        type: 'image',
-        url: 'https://images.unsplash.com/photo-1600494603989-9650cf6ddd3d'
-      },
-      likes: 845,
-      comments: 32,
-      shares: 12,
-      isLiked: false,
-      commentsList: [
-        {
-          id: 1,
-          user: {
-            name: 'Emma Wilson',
-            avatar: 'https://i.pravatar.cc/150?img=8'
-          },
-          content: 'Love the setup! Where did you get that desk lamp? 😍',
-          likes: 3,
-          isLiked: false
-        }
-      ]
-    }
-  ]);
+      setLoading(false);
+    };
+    fetchPosts();
+  }, []);
 
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0];
@@ -134,73 +49,47 @@ export const Feed = () => {
 
   const handleCreateStory = async (file) => {
     const mediaType = file.type.startsWith('image/') ? 'image' : 'video';
-    const mediaUrl = URL.createObjectURL(file);
-
-    const newStory = {
-      id: stories.length + 1,
-      user: {
-        name: 'You',
-        avatar: 'https://i.pravatar.cc/150?img=12',
-        time: 'Just now'
-      },
-      media: {
-        type: mediaType,
-        url: mediaUrl
-      }
-    };
-
-    setStories([newStory, ...stories]);
-    setSelectedStoryMedia(null);
+    const formData = new FormData();
+    formData.append('media', file);
+    formData.append('type', mediaType);
+    try {
+      const res = await storiesApi.create(formData);
+      setStories([res.data, ...stories]);
+      setSelectedStoryMedia(null);
+    } catch (err) {
+      setError('Failed to create story');
+    }
   };
 
   const handleCreatePost = async () => {
     if (!postContent.trim() && !selectedMedia) return;
-
-    let mediaData = undefined;
-    if (selectedMedia) {
-      const mediaType = selectedMedia.type.startsWith('image/') ? 'image' : 'video';
-      const mediaUrl = URL.createObjectURL(selectedMedia);
-      mediaData = {
-        type: mediaType,
-        url: mediaUrl
-      };
+    setIsPosting(true);
+    try {
+      const formData = new FormData();
+      formData.append('content', postContent);
+      if (selectedMedia) formData.append('media', selectedMedia);
+      const res = await postsApi.createPost(formData);
+      setPosts(prev => [res.data, ...prev]);
+      setPostContent('');
+      setSelectedMedia(null);
+    } catch (err) {
+      setError('Failed to create post');
     }
-
-    const newPost = {
-      id: posts.length + 1,
-      user: {
-        name: 'You',
-        avatar: 'https://i.pravatar.cc/150?img=12',
-        time: 'Just now'
-      },
-      content: postContent,
-      media: mediaData,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      isLiked: false,
-      commentsList: []
-    };
-
-    setPosts([newPost, ...posts]);
-    setPostContent('');
-    setSelectedMedia(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setIsPosting(false);
   };
 
-  const handleLikePost = (postId) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-          isLiked: !post.isLiked
-        };
-      }
-      return post;
-    }));
+  const handleLikePost = async (postId) => {
+    try {
+      await postsApi.like(postId);
+      setPosts(posts => posts.map(post => post._id === postId ? { ...post, isLiked: true, likes: post.likes + 1 } : post));
+    } catch (err) {}
+  };
+
+  const handleUnlikePost = async (postId) => {
+    try {
+      await postsApi.unlike(postId);
+      setPosts(posts => posts.map(post => post._id === postId ? { ...post, isLiked: false, likes: post.likes - 1 } : post));
+    } catch (err) {}
   };
 
   const handleSharePost = (postId) => {
@@ -215,32 +104,19 @@ export const Feed = () => {
     }));
   };
 
-  const handleAddComment = (postId) => {
+  const handleAddComment = async (postId) => {
     if (!newComment[postId]?.trim()) return;
-
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        const newCommentObj = {
-          id: post.commentsList.length + 1,
-          user: {
-            name: 'You',
-            avatar: 'https://i.pravatar.cc/150?img=12'
-          },
-          content: newComment[postId],
-          likes: 0,
-          isLiked: false
-        };
-
-        return {
-          ...post,
-          comments: post.comments + 1,
-          commentsList: [...post.commentsList, newCommentObj]
-        };
-      }
-      return post;
-    }));
-
-    setNewComment({ ...newComment, [postId]: '' });
+    try {
+      const res = await postsApi.comment(postId, { content: newComment[postId] });
+      setPosts(posts => posts.map(post =>
+        post._id === postId
+          ? { ...post, comments: [...post.comments, res.data] }
+          : post
+      ));
+      setNewComment({ ...newComment, [postId]: '' });
+    } catch (err) {
+      setError('Failed to add comment');
+    }
   };
 
   const handleLikeComment = (postId, commentId) => {
@@ -271,6 +147,9 @@ export const Feed = () => {
   const handleNextStory = () => {
     setCurrentStoryIndex((prev) => (prev < stories.length - 1 ? prev + 1 : 0));
   };
+
+  if (loading) return <div>Loading feed...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="flex gap-6 p-6">
@@ -355,18 +234,19 @@ export const Feed = () => {
         </div>
 
         {/* Posts Feed */}
-        {posts.map(post => (
-          <div key={post.id} className="bg-white rounded-2xl p-6 shadow-sm">
+        {Array.isArray(posts) && posts.map(post => (
+          <div key={post._id || post.id} className="bg-white rounded-2xl p-6 shadow-sm">
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
                 <img
-                  src={post.user.avatar}
-                  alt={post.user.name}
+                  src={post.user?.avatar || '/default-avatar.png'}
+                  alt={post.user?.name || 'User'}
                   className="w-12 h-12 rounded-full"
+                  onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                 />
                 <div>
-                  <h3 className="font-semibold text-gray-900">{post.user.name}</h3>
-                  <p className="text-sm text-gray-500">{post.user.time}</p>
+                  <h3 className="font-semibold text-gray-900">{post.user?.name || 'Anonymous'}</h3>
+                  <p className="text-sm text-gray-500">{post.user?.time || 'Just now'}</p>
                 </div>
               </div>
               <button 
@@ -376,14 +256,15 @@ export const Feed = () => {
                 <MoreHorizontal className="w-6 h-6" />
               </button>
             </div>
-            <p className="text-gray-800 mb-4 whitespace-pre-line">{post.content}</p>
+            {post.content && <p className="text-gray-800 mb-4 whitespace-pre-line">{post.content}</p>}
             {post.media && (
               <div className="mb-4 rounded-xl overflow-hidden">
                 {post.media.type === 'image' ? (
                   <img
-                    src={post.media.url}
+                    src={post.media.url || '/default-image.png'}
                     alt="Post content"
                     className="w-full h-auto"
+                    onError={e => { e.target.onerror = null; e.target.src = '/default-image.png'; }}
                   />
                 ) : (
                   <video
@@ -397,40 +278,41 @@ export const Feed = () => {
             <div className="flex items-center justify-between py-3 border-t border-b border-gray-100">
               <button 
                 className={`flex items-center gap-2 ${post.isLiked ? 'text-blue-500' : 'text-gray-600'} hover:text-blue-500`}
-                onClick={() => handleLikePost(post.id)}
+                onClick={() => post.isLiked ? handleUnlikePost(post._id) : handleLikePost(post._id)}
               >
                 <Heart className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
-                <span>{post.likes.toLocaleString()} Likes</span>
+                <span>{post.likes?.toLocaleString() || 0} Likes</span>
               </button>
               <button className="flex items-center gap-2 text-gray-600 hover:text-blue-500">
                 <MessageCircle className="w-5 h-5" />
-                <span>{post.comments} Comments</span>
+                <span>{post.comments?.length || 0} Comments</span>
               </button>
               <button 
                 className="flex items-center gap-2 text-gray-600 hover:text-blue-500"
-                onClick={() => handleSharePost(post.id)}
+                onClick={() => handleSharePost(post._id)}
               >
                 <Share2 className="w-5 h-5" />
-                <span>{post.shares} Share</span>
+                <span>{post.shares || 0} Share</span>
               </button>
             </div>
             {/* Comments */}
             <div className="mt-4 space-y-4">
-              {post.commentsList.map((comment) => (
-                <div key={comment.id} className="flex items-start gap-3">
+              {Array.isArray(post.comments) && post.comments.map((comment) => (
+                <div key={comment._id || comment.id} className="flex items-start gap-3">
                   <img
-                    src={comment.user.avatar}
-                    alt={comment.user.name}
+                    src={comment.user?.avatar || '/default-avatar.png'}
+                    alt={comment.user?.name || 'User'}
                     className="w-8 h-8 rounded-full"
+                    onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-gray-900">{comment.user.name}</h4>
+                      <h4 className="font-medium text-gray-900">{comment.user?.name || 'Anonymous'}</h4>
                       <button 
                         className={`text-sm ${comment.isLiked ? 'text-blue-500' : 'text-gray-500'}`}
-                        onClick={() => handleLikeComment(post.id, comment.id)}
+                        onClick={() => handleLikeComment(post._id, comment._id)}
                       >
-                        {comment.likes} likes
+                        {comment.likes || 0} likes
                       </button>
                     </div>
                     <p className="text-gray-600">{comment.content}</p>
@@ -449,9 +331,9 @@ export const Feed = () => {
                     type="text"
                     placeholder="Write a comment..."
                     className="w-full bg-gray-50 rounded-full px-4 py-2 pr-12 text-gray-700 focus:outline-none"
-                    value={newComment[post.id] || ''}
-                    onChange={(e) => setNewComment({ ...newComment, [post.id]: e.target.value })}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddComment(post.id)}
+                    value={newComment[post._id] || ''}
+                    onChange={(e) => setNewComment({ ...newComment, [post._id]: e.target.value })}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddComment(post._id)}
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <button 
@@ -499,7 +381,7 @@ export const Feed = () => {
             </button>
             {stories.map(story => (
               <div 
-                key={story.id} 
+                key={story._id || story.id} 
                 className="flex items-center gap-3 p-2 cursor-pointer hover:bg-gray-50 rounded-xl transition-colors"
                 onClick={() => {
                   setCurrentStoryIndex(stories.indexOf(story));
@@ -546,9 +428,7 @@ export const Feed = () => {
                   src="https://logo.clearbit.com/sebo.studio"
                   alt="Sebo Studio"
                   className="w-8 h-8 rounded"
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/32x32/3B82F6/FFFFFF?text=S';
-                  }}
+                  onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                 />
               </div>
               <div className="flex-1">

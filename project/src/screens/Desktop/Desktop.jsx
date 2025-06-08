@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Separator } from "../../components/ui/separator";
 import { useAuth } from "../../lib/auth-context";
+import { auth } from '../../services/api';
 
 export const Desktop = () => {
   const navigate = useNavigate();
@@ -15,27 +16,37 @@ export const Desktop = () => {
   const [keepLoggedIn, setKeepLoggedIn] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSignIn = () => {
+  const handleSignIn = async (e) => {
+    e.preventDefault(); // Prevent default form submission
     // Basic validation
     if (!email || !password) {
       setError("Please enter both email and password");
       return;
     }
-
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address");
       return;
     }
-
-    // In a real app, you would validate credentials against a backend
-    // For now, we'll simulate a successful login
-    login(email);
-    if (keepLoggedIn) {
-      localStorage.setItem("keepLoggedIn", "true");
+    try {
+      const response = await auth.login({ email, password });
+      const { token, user } = response.data;
+      // Store the token only if it exists and is not undefined/null
+      if (token && token !== 'undefined') {
+        localStorage.setItem('token', token);
+        // Update auth context
+        login(email);
+        if (keepLoggedIn) {
+          localStorage.setItem("keepLoggedIn", "true");
+        }
+        navigate("/home");
+      } else {
+        setError('Login failed: No token received.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.msg || 'Login failed. Please try again.');
     }
-    navigate("/home");
   };
 
   const handleEmailChange = (e) => {
@@ -77,7 +88,7 @@ export const Desktop = () => {
           </div>
 
           {/* Form */}
-          <div className="flex flex-col gap-5 max-w-[399px]">
+          <form onSubmit={handleSignIn} className="flex flex-col gap-5 max-w-[399px]">
             {/* Error message */}
             {error && (
               <div className="text-red-500 text-sm">{error}</div>
@@ -148,7 +159,7 @@ export const Desktop = () => {
 
             {/* Sign in button */}
             <Button 
-              onClick={handleSignIn}
+              type="submit"
               className="w-full py-4 bg-[#357aff] rounded-[10px] font-semibold text-lg tracking-[-0.18px] leading-[21.6px] font-['Inter',Helvetica]"
             >
               Sign in
@@ -171,7 +182,7 @@ export const Desktop = () => {
               Sign in with Google
               <img className="w-6 h-6 ml-2" alt="Google logo" src="/plus.svg" />
             </Button>
-          </div>
+          </form>
 
           {/* Create account link */}
           <p className="text-center text-lg leading-[27px] font-['Inter',Helvetica]">

@@ -1,40 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPlus, X, Check, MessageCircle } from 'lucide-react';
+import { users as usersApi } from '../../services/api';
 
 export const ConnectionRequests = () => {
-  const [requests, setRequests] = useState([
-    {
-      id: '1',
-      user: {
-        name: 'John Doe',
-        role: 'Senior Software Engineer',
-        company: 'Tech Corp',
-        avatar: 'https://i.pravatar.cc/150?img=1'
-      },
-      message: 'I noticed we both work in the AI space. Would love to connect and share insights!',
-      timestamp: new Date()
-    },
-    {
-      id: '2',
-      user: {
-        name: 'Jane Smith',
-        role: 'Product Manager',
-        company: 'Innovate Inc',
-        avatar: 'https://i.pravatar.cc/150?img=2'
-      },
-      message: 'Your work on React patterns is impressive! Would be great to connect and learn more.',
-      timestamp: new Date()
-    }
-  ]);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleAccept = (requestId) => {
-    setRequests(requests.filter(request => request.id !== requestId));
-    // Here you would typically make an API call to accept the connection
+  useEffect(() => {
+    const fetchRequests = async () => {
+      setLoading(true);
+      try {
+        // Replace with your actual endpoint for connection requests
+        const res = await usersApi.getFriends('me'); // 'me' or current user id
+        setRequests(res.data.requests || []);
+      } catch (err) {
+        setError('Failed to load connection requests');
+      }
+      setLoading(false);
+    };
+    fetchRequests();
+  }, []);
+
+  const handleAccept = async (requestId) => {
+    try {
+      // Replace with your actual accept endpoint
+      await usersApi.addFriend(requestId);
+      setRequests(requests.filter(request => request.id !== requestId));
+    } catch (err) {}
   };
 
-  const handleDecline = (requestId) => {
-    setRequests(requests.filter(request => request.id !== requestId));
-    // Here you would typically make an API call to decline the connection
+  const handleDecline = async (requestId) => {
+    try {
+      // Replace with your actual decline endpoint
+      await usersApi.removeFriend(requestId);
+      setRequests(requests.filter(request => request.id !== requestId));
+    } catch (err) {}
   };
 
   const handleMessage = (requestId) => {
@@ -42,13 +43,15 @@ export const ConnectionRequests = () => {
     console.log('Navigate to chat with request:', requestId);
   };
 
+  if (loading) return <div>Loading connection requests...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
   return (
     <div className="max-w-3xl mx-auto py-6">
       <div className="flex items-center gap-2 mb-6">
         <UserPlus className="w-6 h-6 text-blue-500" />
         <h1 className="text-2xl font-semibold text-gray-900">Connection Requests</h1>
       </div>
-
       {requests.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500">No pending connection requests</p>
@@ -97,7 +100,7 @@ export const ConnectionRequests = () => {
                   </div>
                   <p className="mt-2 text-gray-600">{request.message}</p>
                   <p className="mt-2 text-sm text-gray-400">
-                    {request.timestamp.toLocaleDateString()}
+                    {request.timestamp && new Date(request.timestamp).toLocaleDateString()}
                   </p>
                 </div>
               </div>

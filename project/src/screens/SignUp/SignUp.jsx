@@ -4,11 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Separator } from "../../components/ui/separator";
-import { useAuth } from "../../lib/auth-context";
+import { auth } from '../../services/api';
 
 export const SignUp = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -19,34 +18,64 @@ export const SignUp = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    setError(""); // Clear error when user types
+    setError("");
   };
 
-  const handleSignUp = () => {
-    // Validate form
+  const handleSignUp = async () => {
     if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
       setError("All fields are required");
       return;
     }
-
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-
     if (!agreeToTerms) {
       setError("Please agree to the Terms and Conditions");
       return;
     }
-
-    // In a real app, you would validate credentials here
-    // For now, we'll just simulate a successful signup
-    login(formData.email);
-    navigate("/home");
+    try {
+      const registerData = {
+        fullName: formData.fullName,
+        username: formData.fullName.toLowerCase().replace(/\s+/g, ''),
+        email: formData.email,
+        password: formData.password
+      };
+      console.log('Sending registration data:', registerData);
+      const response = await auth.register(registerData);
+      console.log('Registration response:', response.data);
+      setSuccess(true);
+      navigate('/'); // Redirect to login
+    } catch (err) {
+      console.error('Registration error details:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+        fullError: err
+      });
+      
+      // Show more detailed error message
+      let errorMessage = 'Signup failed';
+      if (err.response?.data) {
+        if (err.response.data.missing) {
+          const missingFields = Object.entries(err.response.data.missing)
+            .filter(([_, isMissing]) => isMissing)
+            .map(([field]) => field)
+            .join(', ');
+          errorMessage = `Missing required fields: ${missingFields}`;
+        } else if (err.response.data.msg) {
+          errorMessage = err.response.data.msg;
+        } else if (err.response.data.error) {
+          errorMessage = err.response.data.error;
+        }
+      }
+      setError(errorMessage);
+    }
   };
 
   return (
@@ -72,6 +101,13 @@ export const SignUp = () => {
               Join our community and start exploring.
             </p>
           </div>
+
+          {/* Error message display */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
 
           {/* Form */}
           <div className="flex flex-col gap-5 max-w-[399px]">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Search, Check } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 
@@ -7,36 +7,36 @@ export const ShareLocationModal = ({
   onClose,
   onShare,
   currentLocation,
+  contacts = [],
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [contacts, setContacts] = useState([
-    { id: '1', name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', selected: false },
-    { id: '2', name: 'Jane Smith', avatar: 'https://i.pravatar.cc/150?img=2', selected: false },
-    { id: '3', name: 'Mike Johnson', avatar: 'https://i.pravatar.cc/150?img=3', selected: false },
-    { id: '4', name: 'Sarah Williams', avatar: 'https://i.pravatar.cc/150?img=4', selected: false },
-    { id: '5', name: 'David Brown', avatar: 'https://i.pravatar.cc/150?img=5', selected: false },
-    { id: '6', name: 'Emily Davis', avatar: 'https://i.pravatar.cc/150?img=6', selected: false },
-  ]);
+  const [selectedIds, setSelectedIds] = useState(new Set());
 
   if (!isOpen) return null;
 
-  const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredContacts = useMemo(
+    () =>
+      contacts.filter(contact =>
+        contact.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [contacts, searchQuery]
   );
 
-  const selectedContacts = contacts.filter(contact => contact.selected);
-
   const toggleContact = (id) => {
-    setContacts(prevContacts =>
-      prevContacts.map(contact =>
-        contact.id === id ? { ...contact, selected: !contact.selected } : contact
-      )
-    );
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
   };
 
   const handleShare = () => {
-    const selectedIds = selectedContacts.map(contact => contact.id);
-    onShare(selectedIds);
+    onShare(Array.from(selectedIds));
+    setSelectedIds(new Set());
     onClose();
   };
 
@@ -86,7 +86,7 @@ export const ShareLocationModal = ({
                 <div
                   key={contact.id}
                   className={`flex items-center p-3 rounded-xl cursor-pointer transition-colors ${
-                    contact.selected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                    selectedIds.has(contact.id) ? 'bg-blue-50' : 'hover:bg-gray-50'
                   }`}
                   onClick={() => toggleContact(contact.id)}
                 >
@@ -96,7 +96,7 @@ export const ShareLocationModal = ({
                     className="w-10 h-10 rounded-full mr-3"
                   />
                   <span className="flex-1 font-medium text-gray-900">{contact.name}</span>
-                  {contact.selected && (
+                  {selectedIds.has(contact.id) && (
                     <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
                       <Check className="w-3 h-3 text-white" />
                     </div>
@@ -117,10 +117,10 @@ export const ShareLocationModal = ({
           </Button>
           <Button
             onClick={handleShare}
-            disabled={selectedContacts.length === 0 || !currentLocation}
+            disabled={selectedIds.size === 0 || !currentLocation}
             className="bg-blue-500 hover:bg-blue-600 text-white"
           >
-            Share with {selectedContacts.length} {selectedContacts.length === 1 ? 'contact' : 'contacts'}
+            Share with {selectedIds.size} {selectedIds.size === 1 ? 'contact' : 'contacts'}
           </Button>
         </div>
       </div>

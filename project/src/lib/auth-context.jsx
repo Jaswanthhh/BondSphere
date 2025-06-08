@@ -6,22 +6,28 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check localStorage on initial load
-    const storedAuth = localStorage.getItem('isLoggedIn');
-    if (storedAuth === 'true') {
+    // Check for token on initial load
+    const token = localStorage.getItem('token');
+    if (token) {
       setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+      localStorage.removeItem('userEmail');
     }
+    // eslint-disable-next-line
   }, []);
 
   const login = (email) => {
-    setIsAuthenticated(true);
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('userEmail', email);
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsAuthenticated(true);
+      localStorage.setItem('userEmail', email);
+    }
   };
 
   const logout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('token');
     localStorage.removeItem('userEmail');
   };
 

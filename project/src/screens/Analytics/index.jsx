@@ -1,58 +1,31 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, Users, Globe, Activity } from 'lucide-react';
-
-const stats = [
-  {
-    title: 'Total Connections',
-    value: '2,847',
-    change: '+12.5%',
-    icon: Users,
-    trend: 'up'
-  },
-  {
-    title: 'Active Projects',
-    value: '156',
-    change: '+8.2%',
-    icon: Activity,
-    trend: 'up'
-  },
-  {
-    title: 'Global Reach',
-    value: '42',
-    change: '+15.3%',
-    icon: Globe,
-    trend: 'up'
-  }
-];
-
-const recentActivity = [
-  {
-    id: 1,
-    type: 'connection',
-    user: 'John Doe',
-    action: 'connected with',
-    target: 'Sarah Smith',
-    time: '2 hours ago'
-  },
-  {
-    id: 2,
-    type: 'project',
-    user: 'Alex Johnson',
-    action: 'started a new project',
-    target: 'Web Development',
-    time: '4 hours ago'
-  },
-  {
-    id: 3,
-    type: 'travel',
-    user: 'Emily Brown',
-    action: 'posted a travel plan to',
-    target: 'Tokyo, Japan',
-    time: '6 hours ago'
-  }
-];
+import api from '../../services/api';
 
 export const Analytics = () => {
+  const [stats, setStats] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get('/analytics');
+        setStats(res.data.stats || []);
+        setRecentActivity(res.data.recentActivity || []);
+      } catch (err) {
+        setError('Failed to load analytics');
+      }
+      setLoading(false);
+    };
+    fetchAnalytics();
+  }, []);
+
+  if (loading) return <div>Loading analytics...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -64,7 +37,7 @@ export const Analytics = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat, index) => {
-          const Icon = stat.icon;
+          const Icon = stat.icon === 'Users' ? Users : stat.icon === 'Activity' ? Activity : stat.icon === 'Globe' ? Globe : BarChart3;
           return (
             <div
               key={index}
