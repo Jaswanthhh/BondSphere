@@ -1,6 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './lib/auth-context';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Desktop } from './screens/Desktop';
 import { SignUp } from './screens/SignUp';
 import { Home } from './screens/Home';
@@ -15,45 +14,44 @@ import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
 import { LocationSharing } from './screens/LocationSharing';
 import { ConnectionRequests } from './screens/ConnectionRequests';
-import { ProtectedRoute } from './components/protected-route';
+import { People } from './screens/People/People';
+import ProtectedRoute from './ui/protected-route';
+import { Toaster } from 'react-hot-toast';
 
 const App = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Desktop />} />
-          <Route path="/signup" element={<SignUp />} />
+    <>
+      <Toaster position="top-right" />
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Desktop />} />
+        <Route path="/signup" element={<SignUp />} />
+        {/* Optionally add: <Route path="/login" element={<LoginForm />} /> */}
 
-          {/* Protected routes */}
-          <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>}>
-            <Route index element={<Feed />} />
-            <Route path="feed" element={<Feed />} />
-            <Route path="messages" element={<Messages />} />
-            <Route path="communities" element={<Communities />}>
-              <Route index element={<Communities />} />
-              <Route path=":communityId" element={<CommunityHome />} />
-              <Route path=":communityId/details" element={<CommunityDetails />} />
-            </Route>
-            <Route path="travel">
-              <Route index element={<Travel />} />
-              <Route path=":listingId" element={<TravelDetails />} />
-            </Route>
-            <Route path="jobs" element={<Jobs />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="organization" element={<Organization />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="location" element={<LocationSharing />} />
-            <Route path="connections" element={<ConnectionRequests />} />
-          </Route>
+        {/* Protected nested routes for /home */}
+        <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>}>
+          <Route index element={<Feed />} />
+          <Route path="feed" element={<Feed />} />
+          <Route path="messages" element={<Messages />} />
+          <Route path="communities" element={<Communities />} />
+          <Route path="communities/:id" element={<CommunityDetails />} />
+          <Route path="travel" element={<Travel />} />
+          <Route path="travel/:listingId" element={<TravelDetails />} />
+          <Route path="jobs" element={<Jobs />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="organization" element={<Organization />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="location" element={<LocationSharing />} />
+          <Route path="connections" element={<ConnectionRequests />} />
+        </Route>
 
-          {/* Fallback route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+        <Route path="/people" element={<People />} />
+
+        {/* Fallback route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 };
 

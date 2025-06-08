@@ -1,17 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Share2, BookmarkPlus, MapPin, Calendar, Users, Clock, Globe, Info, MessageCircle, Shield, Bell } from 'lucide-react';
 import PropTypes from 'prop-types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { SecurityVerification } from '../../components/SecurityVerification';
 import { SecurityNotification } from '../../components/SecurityNotification';
+import { Button } from '../../components/ui/button';
+import { travelApi } from '../../services/api';
 
-export const TravelDetails = ({ listing }) => {
+export const TravelDetails = (props) => {
+  const params = useParams();
+  const listingId = props.listingId || params.listingId;
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
   const [showVerification, setShowVerification] = useState(false);
   const [securityNotification, setSecurityNotification] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [listing, setListing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState('');
 
   const handleBack = () => {
     navigate('/home/travel');
@@ -41,6 +50,39 @@ export const TravelDetails = ({ listing }) => {
   const handleShowNotifications = () => {
     setShowNotificationPanel(!showNotificationPanel);
   };
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await travelApi.getListingDetails(listingId);
+        setListing(res.data);
+      } catch (err) {
+        setError('Failed to load travel details.');
+      }
+      setLoading(false);
+    };
+    if (listingId) fetchDetails();
+  }, [listingId]);
+
+  const handleJoinTrip = async () => {
+    setJoining(true);
+    setJoinError('');
+    try {
+      await travelApi.joinTrip(listingId);
+      // Refresh details after joining
+      const res = await travelApi.getListingDetails(listingId);
+      setListing(res.data);
+    } catch (err) {
+      setJoinError('Failed to join trip.');
+    }
+    setJoining(false);
+  };
+
+  if (loading) return <div>Loading travel details...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+  if (!listing) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -127,8 +169,8 @@ export const TravelDetails = ({ listing }) => {
       {/* Cover Image */}
       <div className="h-[320px] w-full relative">
         <img
-          src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a"
-          alt="European Cultural Tour"
+          src={listing.image}
+          alt={listing.title}
           className="w-full h-full object-cover"
         />
       </div>
@@ -223,12 +265,12 @@ export const TravelDetails = ({ listing }) => {
               <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6 sticky top-24">
                 <div className="flex items-center gap-4">
                   <img
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e"
-                    alt="Travel Enthusiasts"
+                    src={listing.creator?.avatar || '/default-avatar.png'}
+                    alt={listing.creator?.fullName || listing.creator?.username || 'User'}
                     className="w-12 h-12 rounded-full object-cover"
                   />
                   <div>
-                    <h3 className="font-medium text-gray-900">Travel Enthusiasts</h3>
+                    <h3 className="font-medium text-gray-900">{listing.creator?.fullName || listing.creator?.username || 'User'}</h3>
                     <p className="text-sm text-gray-500">Trip Organizer</p>
                   </div>
                 </div>
@@ -236,22 +278,26 @@ export const TravelDetails = ({ listing }) => {
                 <div className="space-y-4">
                   <div className="flex items-center text-sm text-gray-600">
                     <MapPin className="w-4 h-4 mr-2 shrink-0" />
-                    <span>Paris, Rome, Barcelona</span>
+                    <span>{listing.location}</span>
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Calendar className="w-4 h-4 mr-2 shrink-0" />
-                    <span>6/15/2024 - 6/30/2024</span>
+                    <span>{new Date(listing.startDate).toLocaleDateString()} - {new Date(listing.endDate).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Users className="w-4 h-4 mr-2 shrink-0" />
-                    <span>8/12 participants</span>
+                    <span>{(listing.participants?.length ?? 0)}/{listing.maxParticipants ?? 0} participants</span>
                   </div>
                 </div>
 
                 <div className="space-y-3 pt-2">
-                  <button className="w-full px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
-                    Join Trip
-                  </button>
+                  <Button
+                    onClick={handleJoinTrip}
+                    disabled={joining || (listing.participants?.length ?? 0) >= (listing.maxParticipants ?? 0)}
+                    className="w-full px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    {(listing.participants?.length ?? 0) >= (listing.maxParticipants ?? 0) ? 'Trip Full' : (joining ? 'Joining...' : 'Join Trip')}
+                  </Button>
                   <button className="w-full px-4 py-2.5 border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
                     <MessageCircle className="w-4 h-4" />
                     Message Organizer
@@ -308,19 +354,5 @@ export const TravelDetails = ({ listing }) => {
 };
 
 TravelDetails.propTypes = {
-  listing: PropTypes.shape({
-    id: PropTypes.string,
-    title: PropTypes.string,
-    description: PropTypes.string,
-    image: PropTypes.string,
-    startDate: PropTypes.string,
-    endDate: PropTypes.string,
-    destination: PropTypes.string,
-    maxParticipants: PropTypes.number,
-    currentParticipants: PropTypes.number,
-    organizer: PropTypes.shape({
-      name: PropTypes.string,
-      avatar: PropTypes.string
-    })
-  })
+  listingId: PropTypes.string
 };

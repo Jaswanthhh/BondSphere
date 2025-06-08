@@ -1,101 +1,84 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, Heart, Bookmark, Share2, MoreHorizontal, Image, Smile, MapPin, Building2, Briefcase, DollarSign, Link } from 'lucide-react';
+import { feedApi } from '../../services/api';
 
 export const ProfessionalFeed = () => {
   const [newPost, setNewPost] = useState('');
   const [selectedMedia, setSelectedMedia] = useState(null);
   const fileInputRef = useRef(null);
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      user: {
-        name: 'Google',
-        avatar: 'https://logo.clearbit.com/google.com',
-        role: 'Company',
-        isVerified: true
-      },
-      content: "We're excited to announce multiple positions in our AI research team! We're looking for passionate individuals who want to shape the future of artificial intelligence.",
-      time: '2h ago',
-      type: 'job',
-      likes: 245,
-      comments: 58,
-      isLiked: false,
-      isBookmarked: false,
-      jobDetails: {
-        title: 'AI Research Engineer',
-        company: 'Google',
-        location: 'Mountain View, CA',
-        type: 'Full-Time',
-        salary: '$150k - $220k',
-        tags: ['AI', 'Machine Learning', 'Python', 'Research']
-      }
-    },
-    {
-      id: 2,
-      user: {
-        name: 'Sarah Wilson',
-        avatar: 'https://i.pravatar.cc/150?img=1',
-        role: 'Senior Software Engineer',
-        company: 'Microsoft'
-      },
-      content: "Just published a comprehensive guide on modern React patterns and best practices. Check it out if you're looking to level up your React skills! 🚀",
-      image: 'https://source.unsplash.com/random/800x400/?coding',
-      likes: 182,
-      comments: 43,
-      time: '4h ago',
-      isLiked: true,
-      isBookmarked: true
-    }
-  ]);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handlePostSubmit = (e) => {
+  useEffect(() => {
+    const fetchFeed = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await feedApi.getFeed();
+        setPosts(res.data);
+      } catch (err) {
+        setError('Failed to load feed.');
+      }
+      setLoading(false);
+    };
+    fetchFeed();
+  }, []);
+
+  const handlePostSubmit = async (e) => {
     e.preventDefault();
     if (!newPost.trim()) return;
-
-    const post = {
-      id: Date.now(),
-      user: {
-        name: 'Current User',
-        avatar: '/avatars/default.jpg',
-        role: 'Software Developer',
-        company: 'Tech Corp'
-      },
-      content: newPost,
-      likes: 0,
-      comments: 0,
-      time: 'Just now',
-      isLiked: false,
-      isBookmarked: false
-    };
-
-    setPosts([post, ...posts]);
-    setNewPost('');
-    setSelectedMedia(null);
+    setLoading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('content', newPost);
+      if (selectedMedia) {
+        formData.append('media', selectedMedia);
+      }
+      const res = await feedApi.createPost(formData);
+      setPosts([res.data, ...posts]);
+      setNewPost('');
+      setSelectedMedia(null);
+    } catch (err) {
+      setError('Failed to create post.');
+    }
+    setLoading(false);
   };
 
-  const toggleLike = (postId) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          isLiked: !post.isLiked,
-          likes: post.isLiked ? post.likes - 1 : post.likes + 1
-        };
-      }
-      return post;
-    }));
+  const toggleLike = async (postId) => {
+    try {
+      await feedApi.toggleLike(postId);
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            isLiked: !post.isLiked,
+            likes: post.isLiked ? post.likes - 1 : post.likes + 1
+          };
+        }
+        return post;
+      }));
+    } catch (err) {
+      setError('Failed to update like.');
+    }
   };
 
-  const toggleBookmark = (postId) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          isBookmarked: !post.isBookmarked
-        };
-      }
-      return post;
-    }));
+  const toggleBookmark = async (postId) => {
+    try {
+      await feedApi.toggleBookmark(postId);
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            isBookmarked: !post.isBookmarked
+          };
+        }
+        return post;
+      }));
+    } catch (err) {
+      setError('Failed to update bookmark.');
+    }
   };
 
   const handleFileSelect = (event) => {
@@ -104,6 +87,9 @@ export const ProfessionalFeed = () => {
       setSelectedMedia(file);
     }
   };
+
+  if (loading) return <div>Loading feed...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

@@ -1,44 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserPlus, X, Check, Search } from 'lucide-react';
+import { connectionRequestsApi } from '../../services/api';
 
 export const ConnectionRequests = () => {
-  const [requests, setRequests] = useState([
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      role: 'Software Engineer',
-      company: 'Tech Solutions Inc.',
-      avatar: '/avatars/sarah.jpg',
-      mutualConnections: 12
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      role: 'Product Manager',
-      company: 'Innovation Labs',
-      avatar: '/avatars/michael.jpg',
-      mutualConnections: 8
-    },
-    {
-      id: 3,
-      name: 'Emily Brown',
-      role: 'UX Designer',
-      company: 'Design Studio',
-      avatar: '/avatars/emily.jpg',
-      mutualConnections: 15
-    }
-  ]);
-
+  const [requests, setRequests] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleAccept = (id) => {
-    setRequests(requests.filter(request => request.id !== id));
-    // Here you would typically make an API call to accept the connection
+  useEffect(() => {
+    const fetchRequests = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await connectionRequestsApi.getRequests();
+        setRequests(res.data);
+      } catch (err) {
+        setError('Failed to load connection requests.');
+      }
+      setLoading(false);
+    };
+    fetchRequests();
+  }, []);
+
+  const handleAccept = async (requestId) => {
+    try {
+      await connectionRequestsApi.acceptRequest(requestId);
+      setRequests(requests.filter(req => req.id !== requestId));
+    } catch (err) {
+      setError('Failed to accept request.');
+    }
   };
 
-  const handleReject = (id) => {
-    setRequests(requests.filter(request => request.id !== id));
-    // Here you would typically make an API call to reject the connection
+  const handleReject = async (requestId) => {
+    try {
+      await connectionRequestsApi.rejectRequest(requestId);
+      setRequests(requests.filter(req => req.id !== requestId));
+    } catch (err) {
+      setError('Failed to reject request.');
+    }
   };
 
   const filteredRequests = requests.filter(request =>
@@ -46,6 +46,9 @@ export const ConnectionRequests = () => {
     request.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
     request.company.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) return <div>Loading connection requests...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="space-y-6">
@@ -83,13 +86,10 @@ export const ConnectionRequests = () => {
                 <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
                   {request.avatar ? (
                     <img
-                      src={request.avatar}
+                      src={request.avatar || '/default-avatar.png'}
                       alt={request.name}
                       className="w-full h-full rounded-full object-cover"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(request.name)}&background=random`;
-                      }}
+                      onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                     />
                   ) : (
                     <span className="text-xl font-semibold text-blue-500">

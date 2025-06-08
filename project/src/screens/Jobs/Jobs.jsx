@@ -6,6 +6,7 @@ import { Connections } from "./Connections";
 import { ConnectionRequests } from "./ConnectionRequests";
 import { JobChat } from "./JobChat";
 import { JobFeed } from "./JobFeed";
+import { jobsApi } from '../../services/api';
 
 export const Jobs = () => {
   const { isAuthenticated } = useAuth();
@@ -17,62 +18,24 @@ export const Jobs = () => {
   const [recommendedJobs, setRecommendedJobs] = useState([]);
   const [activeTab, setActiveTab] = useState("listings");
   const [showChat, setShowChat] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock job data - in a real app, this would come from an API
   useEffect(() => {
-    const mockJobs = [
-      {
-        id: 1,
-        title: "Senior Product Designer",
-        company: "Apple Inc.",
-        location: "San Francisco, CA",
-        type: "Full-Time",
-        salary: "$120k - $150k",
-        tags: ["Design", "UI/UX", "Remote"],
-        logo: "https://logo.clearbit.com/apple.com",
-        isBookmarked: false,
-        matchScore: 95,
-        isRecommended: true
-      },
-      {
-        id: 2,
-        title: "Frontend Developer",
-        company: "Netflix",
-        location: "Los Angeles, CA",
-        type: "Full-Time",
-        salary: "$100k - $130k",
-        tags: ["React", "TypeScript", "Remote"],
-        logo: "https://logo.clearbit.com/netflix.com",
-        isBookmarked: true,
-        matchScore: 88,
-        isRecommended: true
-      },
-      {
-        id: 3,
-        title: "UI Designer",
-        company: "Spotify",
-        location: "New York, NY",
-        type: "Full-Time",
-        salary: "$90k - $120k",
-        tags: ["Design", "Figma", "Remote"],
-        logo: "https://logo.clearbit.com/spotify.com",
-        isBookmarked: false
-      },
-      {
-        id: 4,
-        title: "Product Manager",
-        company: "Microsoft",
-        location: "Seattle, WA",
-        type: "Full-Time",
-        salary: "$130k - $160k",
-        tags: ["Product", "Management", "Remote"],
-        logo: "https://logo.clearbit.com/microsoft.com",
-        isBookmarked: false
+    const fetchJobs = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await jobsApi.getJobs();
+        setJobs(res.data);
+        setFilteredJobs(res.data);
+        setRecommendedJobs(res.data.filter(job => job.isRecommended));
+      } catch (err) {
+        setError("Failed to load jobs.");
       }
-    ];
-    setJobs(mockJobs);
-    setFilteredJobs(mockJobs);
-    setRecommendedJobs(mockJobs.filter(job => job.isRecommended));
+      setLoading(false);
+    };
+    fetchJobs();
   }, []);
 
   const handleSearch = () => {
@@ -99,11 +62,15 @@ export const Jobs = () => {
     setFilteredJobs(filtered);
   };
 
-  const toggleBookmark = (jobId) => {
-    const updatedJobs = filteredJobs.map(job =>
-      job.id === jobId ? { ...job, isBookmarked: !job.isBookmarked } : job
-    );
-    setFilteredJobs(updatedJobs);
+  const toggleBookmark = async (jobId) => {
+    try {
+      await jobsApi.toggleBookmark(jobId);
+      setFilteredJobs(filteredJobs.map(job =>
+        job.id === jobId ? { ...job, isBookmarked: !job.isBookmarked } : job
+      ));
+    } catch (err) {
+      setError("Failed to update bookmark.");
+    }
   };
 
   if (!isAuthenticated) {
@@ -113,6 +80,9 @@ export const Jobs = () => {
       </div>
     );
   }
+
+  if (loading) return <div>Loading jobs...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-6">
@@ -291,13 +261,10 @@ export const Jobs = () => {
                     <div className="flex gap-4">
                       <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
                         <img 
-                          src={job.logo} 
+                          src={job.logo || '/default-image.png'} 
                           alt={`${job.company} logo`} 
                           className="w-8 h-8 object-contain"
-                          onError={(e) => {
-                            const target = e.target;
-                            target.src = 'https://via.placeholder.com/32';
-                          }}
+                          onError={e => { e.target.onerror = null; e.target.src = '/default-image.png'; }}
                         />
                       </div>
                       <div>
@@ -366,13 +333,10 @@ export const Jobs = () => {
                     <div className="flex gap-4">
                       <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
                         <img 
-                          src={job.logo} 
+                          src={job.logo || '/default-image.png'} 
                           alt={`${job.company} logo`} 
                           className="w-8 h-8 object-contain"
-                          onError={(e) => {
-                            const target = e.target;
-                            target.src = 'https://via.placeholder.com/32';
-                          }}
+                          onError={e => { e.target.onerror = null; e.target.src = '/default-image.png'; }}
                         />
                       </div>
                       <div>

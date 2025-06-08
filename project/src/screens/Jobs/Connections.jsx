@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Users, Filter, Tag, Briefcase, MapPin, Star, UserPlus, MoreHorizontal } from 'lucide-react';
+import { connectionsApi } from '../../services/api';
 
 export const Connections = () => {
   const [connections, setConnections] = useState([]);
@@ -10,39 +11,23 @@ export const Connections = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState('grid');
   const [sortBy, setSortBy] = useState('recent');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock data - in a real app, this would come from an API
   useEffect(() => {
-    const mockConnections = [
-      {
-        id: 1,
-        name: 'Sarah Wilson',
-        role: 'Product Designer',
-        company: 'Google',
-        location: 'San Francisco, CA',
-        avatar: 'https://i.pravatar.cc/150?img=1',
-        tags: ['Design', 'UX', 'Leadership'],
-        groups: ['Design Community', 'Tech Leaders'],
-        interests: ['Product Design', 'Design Systems', 'User Research'],
-        lastInteraction: '2024-02-15',
-        connectionStrength: 85
-      },
-      {
-        id: 2,
-        name: 'Michael Chen',
-        role: 'Software Engineer',
-        company: 'Microsoft',
-        location: 'Seattle, WA',
-        avatar: 'https://i.pravatar.cc/150?img=3',
-        tags: ['Engineering', 'React', 'TypeScript'],
-        groups: ['Developer Network', 'Tech Innovators'],
-        interests: ['Web Development', 'Open Source', 'AI'],
-        lastInteraction: '2024-02-10',
-        connectionStrength: 92
+    const fetchConnections = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await connectionsApi.getConnections();
+        setConnections(res.data);
+        setFilteredConnections(res.data);
+      } catch (err) {
+        setError('Failed to load connections.');
       }
-    ];
-    setConnections(mockConnections);
-    setFilteredConnections(mockConnections);
+      setLoading(false);
+    };
+    fetchConnections();
   }, []);
 
   const groups = ['Design Community', 'Tech Leaders', 'Developer Network', 'Tech Innovators', 'Startup Founders'];
@@ -111,6 +96,29 @@ export const Connections = () => {
         return connections;
     }
   };
+
+  // Example add/remove connection handlers (implement as needed)
+  const handleAddConnection = async (userId) => {
+    try {
+      await connectionsApi.addConnection(userId);
+      // Optionally refetch or update state
+    } catch (err) {
+      setError('Failed to add connection.');
+    }
+  };
+
+  const handleRemoveConnection = async (userId) => {
+    try {
+      await connectionsApi.removeConnection(userId);
+      setConnections(connections.filter(c => c.id !== userId));
+      setFilteredConnections(filteredConnections.filter(c => c.id !== userId));
+    } catch (err) {
+      setError('Failed to remove connection.');
+    }
+  };
+
+  if (loading) return <div>Loading connections...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="p-6">

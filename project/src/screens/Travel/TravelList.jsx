@@ -1,83 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plane, Search, MapPin, Calendar, Users, Filter } from 'lucide-react';
+import { Plane, Search, MapPin, Calendar, Users, Filter, Trash2 } from 'lucide-react';
 import { CreateListing } from './CreateListing';
-
-const travelPosts = [
-  {
-    id: '1',
-    user: {
-      name: 'Alex Johnson',
-      avatar: '/avatars/alex.jpg'
-    },
-    destination: 'Bali, Indonesia',
-    dates: '15 Aug - 30 Aug 2024',
-    startDate: '2024-08-15',
-    endDate: '2024-08-30',
-    travelers: 2,
-    maxParticipants: 4,
-    currentParticipants: 2,
-    type: 'flight',
-    description: 'Looking for travel buddies to explore Bali! Planning to visit beaches, temples, and try local cuisine.',
-    interests: ['Beach', 'Culture', 'Food'],
-    image: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4',
-    organizer: {
-      name: 'Alex Johnson',
-      avatar: '/avatars/alex.jpg'
-    }
-  },
-  {
-    id: '2',
-    user: {
-      name: 'Sarah Smith',
-      avatar: '/avatars/sarah.jpg'
-    },
-    destination: 'Barcelona, Spain',
-    dates: '1 Sep - 10 Sep 2024',
-    startDate: '2024-09-01',
-    endDate: '2024-09-10',
-    travelers: 3,
-    maxParticipants: 5,
-    currentParticipants: 3,
-    type: 'flight',
-    description: 'Planning a photography tour around Barcelona. Would love to connect with fellow photographers!',
-    interests: ['Photography', 'Architecture', 'Art'],
-    image: 'https://images.unsplash.com/photo-1583422409516-2895a77efded',
-    organizer: {
-      name: 'Sarah Smith',
-      avatar: '/avatars/sarah.jpg'
-    }
-  }
-];
+import { travelApi } from '../../services/api';
 
 export const TravelList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [posts, setPosts] = useState(travelPosts);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const currentUserId = localStorage.getItem('userId'); // Assumes you store userId in localStorage after login
 
-  const handleTravelClick = (post) => {
-    navigate(`/home/travel/${post.id}`, { state: { listing: post } });
+  // Fetch travel listings from backend
+  const fetchListings = async () => {
+    setLoading(true);
+    try {
+      const res = await travelApi.getListings();
+      setPosts(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      setPosts([]);
+    }
+    setLoading(false);
   };
 
-  const handleCreateListing = (newListing) => {
-    const listingWithId = {
-      ...newListing,
-      id: String(posts.length + 1),
-      user: {
-        name: 'Current User', // This should come from auth context in a real app
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e'
-      },
-      organizer: {
-        name: 'Current User',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e'
-      },
-      currentParticipants: 1,
-      travelers: 1
-    };
-    setPosts([listingWithId, ...posts]);
-    setIsCreateModalOpen(false);
-    navigate(`/home/travel/${listingWithId.id}`, { state: { listing: listingWithId } });
+  useEffect(() => {
+    fetchListings();
+  }, []);
+
+  const handleTravelClick = (post) => {
+    navigate(`/home/travel/${post._id || post.id}`, { state: { listing: post } });
+  };
+
+  const handleCreateListing = async (newListing) => {
+    try {
+      // Remove MongoDB fields if present
+      const { _id, createdAt, __v, ...cleanData } = newListing;
+      await travelApi.createListing(cleanData);
+      setIsCreateModalOpen(false);
+      fetchListings(); // Refresh list from backend
+    } catch (err) {
+      // Optionally show error
+    }
+  };
+
+  const handleDeleteListing = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this listing?')) return;
+    try {
+      await travelApi.deleteListing(id);
+      fetchListings();
+    } catch (err) {
+      // Optionally show error
+    }
   };
 
   return (
@@ -116,57 +90,69 @@ export const TravelList = () => {
 
       {/* Travel Posts */}
       <div className="space-y-6">
-        {posts
-          .filter(post => 
-            post.destination.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.description.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .map((post) => (
-          <div
-            key={post.id}
-            className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => handleTravelClick(post)}
-          >
-            <div className="flex items-start gap-4">
-              <img
-                src={post.user.avatar}
-                alt={post.user.name}
-                className="w-12 h-12 rounded-full object-cover"
-                onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/48';
-                }}
-              />
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg">{post.user.name}</h3>
-                <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    <span>{post.destination}</span>
+        {loading ? (
+          <div>Loading...</div>
+        ) : (
+          Array.isArray(posts) && posts
+            .filter(post => 
+              post.destination?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.description?.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+            .map((post) => (
+              <div
+                key={post._id || post.id}
+                className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-lg transition-shadow cursor-pointer relative"
+                onClick={() => handleTravelClick(post)}
+              >
+                <div className="flex items-start gap-4">
+                  <img
+                    src={post.creator?.avatar || '/default-avatar.png'}
+                    alt={post.creator?.fullName || post.creator?.username || 'User'}
+                    className="w-12 h-12 rounded-full object-cover"
+                    onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">{post.creator?.fullName || post.creator?.username || 'User'}</h3>
+                    <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        <span>{post.destination}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span>{post.dates}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        <span>{post.travelers || 1} travelers</span>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-gray-600">{post.description}</p>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {(post.interests || []).map((interest, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-blue-50 text-blue-500 rounded-full text-sm"
+                        >
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>{post.dates}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    <span>{post.travelers} travelers</span>
-                  </div>
-                </div>
-                <p className="mt-4 text-gray-600">{post.description}</p>
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {post.interests.map((interest, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-blue-50 text-blue-500 rounded-full text-sm"
+                  {/* Delete button, only show if current user is the creator */}
+                  {post.creator && currentUserId && post.creator._id === currentUserId && (
+                    <button
+                      className="absolute top-4 right-4 p-2 bg-red-100 hover:bg-red-200 rounded-full z-10"
+                      onClick={e => { e.stopPropagation(); handleDeleteListing(post._id); }}
+                      title="Delete Listing"
                     >
-                      {interest}
-                    </span>
-                  ))}
+                      <Trash2 className="w-5 h-5 text-red-600" />
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
-        ))}
+            ))
+        )}
       </div>
 
       {/* Create Listing Modal */}

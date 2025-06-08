@@ -1,105 +1,84 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Image, Link, Smile, Send, ThumbsUp, MessageCircle, Share2, Bookmark, Building2, Briefcase, MapPin, DollarSign, X } from 'lucide-react';
+import { jobFeedApi } from '../../services/api';
 
 export const JobFeed = () => {
   const [newPost, setNewPost] = useState('');
   const [selectedMedia, setSelectedMedia] = useState(null);
   const fileInputRef = useRef(null);
-  const [posts, setPosts] = useState([
-    {
-      id: '1',
-      author: {
-        name: 'Google',
-        role: 'Company',
-        avatar: 'https://logo.clearbit.com/google.com',
-        isVerified: true
-      },
-      content: "We're excited to announce multiple positions in our AI research team! We're looking for passionate individuals who want to shape the future of artificial intelligence.",
-      timestamp: new Date(),
-      type: 'job',
-      likes: 245,
-      comments: 58,
-      shares: 124,
-      isLiked: false,
-      isBookmarked: false,
-      jobDetails: {
-        title: 'AI Research Engineer',
-        company: 'Google',
-        location: 'Mountain View, CA',
-        type: 'Full-Time',
-        salary: '$150k - $220k',
-        tags: ['AI', 'Machine Learning', 'Python', 'Research']
-      }
-    },
-    {
-      id: '2',
-      author: {
-        name: 'Sarah Wilson',
-        role: 'Senior Software Engineer',
-        company: 'Microsoft',
-        avatar: 'https://i.pravatar.cc/150?img=1'
-      },
-      content: "Just published a comprehensive guide on modern React patterns and best practices. Check it out if you're looking to level up your React skills! 🚀",
-      timestamp: new Date(),
-      type: 'knowledge',
-      images: ['https://source.unsplash.com/random/800x400/?coding'],
-      likes: 182,
-      comments: 43,
-      shares: 76,
-      isLiked: true,
-      isBookmarked: true
-    }
-  ]);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const handlePostSubmit = (e) => {
+  useEffect(() => {
+    const fetchFeed = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await jobFeedApi.getFeed();
+        setPosts(res.data);
+      } catch (err) {
+        setError('Failed to load feed.');
+      }
+      setLoading(false);
+    };
+    fetchFeed();
+  }, []);
+
+  const handlePostSubmit = async (e) => {
     e.preventDefault();
     if (!newPost.trim()) return;
-
-    const post = {
-      id: Date.now().toString(),
-      author: {
-        name: 'Current User',
-        role: 'Software Developer',
-        company: 'Tech Corp',
-        avatar: 'https://i.pravatar.cc/150?img=4'
-      },
-      content: newPost,
-      timestamp: new Date(),
-      type: 'knowledge',
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      isLiked: false,
-      isBookmarked: false
-    };
-
-    setPosts([post, ...posts]);
-    setNewPost('');
+    setLoading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('content', newPost);
+      if (selectedMedia) {
+        formData.append('media', selectedMedia);
+      }
+      const res = await jobFeedApi.createPost(formData);
+      setPosts([res.data, ...posts]);
+      setNewPost('');
+      setSelectedMedia(null);
+    } catch (err) {
+      setError('Failed to create post.');
+    }
+    setLoading(false);
   };
 
-  const toggleLike = (postId) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          isLiked: !post.isLiked,
-          likes: post.isLiked ? post.likes - 1 : post.likes + 1
-        };
-      }
-      return post;
-    }));
+  const toggleLike = async (postId) => {
+    try {
+      await jobFeedApi.toggleLike(postId);
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            isLiked: !post.isLiked,
+            likes: post.isLiked ? post.likes - 1 : post.likes + 1
+          };
+        }
+        return post;
+      }));
+    } catch (err) {
+      setError('Failed to update like.');
+    }
   };
 
-  const toggleBookmark = (postId) => {
-    setPosts(posts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          isBookmarked: !post.isBookmarked
-        };
-      }
-      return post;
-    }));
+  const toggleBookmark = async (postId) => {
+    try {
+      await jobFeedApi.toggleBookmark(postId);
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            isBookmarked: !post.isBookmarked
+          };
+        }
+        return post;
+      }));
+    } catch (err) {
+      setError('Failed to update bookmark.');
+    }
   };
 
   const handleFileSelect = (event) => {
@@ -108,6 +87,9 @@ export const JobFeed = () => {
       setSelectedMedia(file);
     }
   };
+
+  if (loading) return <div>Loading feed...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="max-w-3xl mx-auto py-6 space-y-6">
@@ -129,7 +111,7 @@ export const JobFeed = () => {
               />
               {selectedMedia && (
                 <div className="relative mt-4">
-                  {selectedMedia.type.startsWith('image/') ? (
+                  {selectedMedia.type && selectedMedia.type.startsWith('image/') ? (
                     <img
                       src={URL.createObjectURL(selectedMedia)}
                       alt="Selected media preview"
@@ -202,124 +184,88 @@ export const JobFeed = () => {
         </form>
       </div>
 
-      {/* Posts Feed */}
+      {/* Feed Posts */}
       <div className="space-y-6">
-        {posts.map(post => (
+        {posts.map((post) => (
           <div key={post.id} className="bg-white rounded-xl shadow-sm p-6">
-            {/* Post Header */}
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <img
-                  src={post.author.avatar}
-                  alt={post.author.name}
-                  className="w-12 h-12 rounded-full"
-                />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">{post.author.name}</h3>
-                    {post.author.isVerified && (
-                      <span className="text-blue-500">✓</span>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {post.author.role}
-                    {post.author.company && ` at ${post.author.company}`}
-                  </div>
+            <div className="flex items-start gap-4 mb-2">
+              <img
+                src={post.author.avatar || '/default-avatar.png'}
+                alt={post.author.name}
+                className="w-10 h-10 rounded-full"
+                onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-900">{post.author.name}</span>
+                  {post.author.isVerified && (
+                    <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full">Verified</span>
+                  )}
+                </div>
+                <div className="text-sm text-gray-500">
+                  {post.author.role}
+                  {post.author.company && <span> • {post.author.company}</span>}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {new Date(post.timestamp).toLocaleString()}
                 </div>
               </div>
-              <button
-                onClick={() => toggleBookmark(post.id)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title={post.isBookmarked ? "Remove bookmark" : "Bookmark post"}
-              >
-                <Bookmark
-                  className={`w-5 h-5 ${
-                    post.isBookmarked ? "text-blue-500 fill-current" : "text-gray-400"
-                  }`}
-                />
-              </button>
             </div>
-
-            {/* Post Content */}
-            <div className="mb-4">
-              <p className="text-gray-800 whitespace-pre-wrap">{post.content}</p>
-              {post.images && post.images.length > 0 && (
-                <div className="mt-4">
-                  {post.images.map((image, index) => (
-                    <img
-                      key={index}
-                      src={image}
-                      alt={`Post image ${index + 1}`}
-                      className="rounded-xl w-full"
-                    />
-                  ))}
-                </div>
-              )}
+            <div className="mb-3 text-gray-800">
+              {post.content}
             </div>
-
-            {/* Job Details if post type is job */}
-            {post.type === 'job' && post.jobDetails && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-semibold text-lg mb-2">{post.jobDetails.title}</h4>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-gray-400" />
+            {post.images && post.images.length > 0 && (
+              <div className="mb-3">
+                {post.images.map((img, idx) => (
+                  <img key={idx} src={img || '/default-image.png'} alt="Post media" className="w-full rounded-xl mb-2" onError={e => { e.target.onerror = null; e.target.src = '/default-image.png'; }} />
+                ))}
+              </div>
+            )}
+            {post.jobDetails && (
+              <div className="bg-blue-50 rounded-xl p-4 mb-3 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                <div className="flex-1">
+                  <div className="font-semibold text-blue-900 text-lg mb-1">{post.jobDetails.title}</div>
+                  <div className="flex items-center gap-3 text-blue-700 text-sm mb-1">
+                    <Building2 className="w-4 h-4" />
                     <span>{post.jobDetails.company}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
+                    <MapPin className="w-4 h-4" />
                     <span>{post.jobDetails.location}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-gray-400" />
+                    <Briefcase className="w-4 h-4" />
                     <span>{post.jobDetails.type}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-gray-400" />
+                    <DollarSign className="w-4 h-4" />
                     <span>{post.jobDetails.salary}</span>
                   </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {post.jobDetails.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm"
-                    >
-                      {tag}
-                    </span>
-                  ))}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {post.jobDetails.tags.map((tag) => (
+                      <span key={tag} className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
-
-            {/* Post Actions */}
-            <div className="mt-4 flex items-center justify-between pt-4 border-t">
+            <div className="flex gap-4 mt-2">
               <button
+                className={`flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors ${post.isLiked ? 'font-bold text-blue-600' : ''}`}
                 onClick={() => toggleLike(post.id)}
-                className="flex items-center gap-2 text-gray-500 hover:text-blue-500"
-                title={`${post.isLiked ? 'Unlike' : 'Like'} post`}
-                aria-label={`${post.isLiked ? 'Unlike' : 'Like'} post - ${post.likes} likes`}
               >
-                <ThumbsUp
-                  className={`w-5 h-5 ${post.isLiked ? "text-blue-500 fill-current" : ""}`}
-                />
+                <ThumbsUp className="w-4 h-4" />
                 <span>{post.likes}</span>
               </button>
-              <button 
-                className="flex items-center gap-2 text-gray-500 hover:text-blue-500"
-                title="Comment on post"
-                aria-label={`Comment on post - ${post.comments} comments`}
-              >
-                <MessageCircle className="w-5 h-5" />
+              <button className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors">
+                <MessageCircle className="w-4 h-4" />
                 <span>{post.comments}</span>
               </button>
-              <button 
-                className="flex items-center gap-2 text-gray-500 hover:text-blue-500"
-                title="Share post"
-                aria-label={`Share post - ${post.shares} shares`}
-              >
-                <Share2 className="w-5 h-5" />
+              <button className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors">
+                <Share2 className="w-4 h-4" />
                 <span>{post.shares}</span>
+              </button>
+              <button
+                className={`flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors ${post.isBookmarked ? 'font-bold text-blue-600' : ''}`}
+                onClick={() => toggleBookmark(post.id)}
+              >
+                <Bookmark className="w-4 h-4" />
               </button>
             </div>
           </div>

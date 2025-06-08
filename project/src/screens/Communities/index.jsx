@@ -1,34 +1,46 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, Search, Plus } from 'lucide-react';
 import { Communities } from './Communities';
 import { CommunityHome } from './CommunityHome';
 import { CommunityDetails } from './CommunityDetails';
-
-const communities = [
-  {
-    id: 1,
-    name: 'Tech Innovators',
-    members: 1234,
-    image: '/communities/tech.jpg',
-    description: 'A community for technology enthusiasts and innovators.'
-  },
-  {
-    id: 2,
-    name: 'Digital Nomads',
-    members: 856,
-    image: '/communities/nomads.jpg',
-    description: 'Connect with remote workers and digital nomads worldwide.'
-  },
-  {
-    id: 3,
-    name: 'Startup Hub',
-    members: 2341,
-    image: '/communities/startup.jpg',
-    description: 'Network with startup founders and entrepreneurs.'
-  }
-];
+import { communitiesApi } from '../../services/api';
 
 export const CommunitiesComponent = () => {
+  const [communities, setCommunities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [joiningId, setJoiningId] = useState(null);
+
+  useEffect(() => {
+    const fetchCommunities = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await communitiesApi.getCommunities();
+        setCommunities(res.data);
+      } catch (err) {
+        setError('Failed to load communities.');
+      }
+      setLoading(false);
+    };
+    fetchCommunities();
+  }, []);
+
+  const handleJoin = async (communityId) => {
+    setJoiningId(communityId);
+    setError('');
+    try {
+      await communitiesApi.joinCommunity(communityId);
+      setCommunities(communities.map(c => c.id === communityId ? { ...c, isJoined: true } : c));
+    } catch (err) {
+      setError('Failed to join community.');
+    }
+    setJoiningId(null);
+  };
+
+  if (loading) return <div>Loading communities...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -76,11 +88,21 @@ export const CommunitiesComponent = () => {
               <p className="text-gray-500 text-sm mt-1">{community.description}</p>
               <div className="flex items-center gap-2 mt-4">
                 <Users className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-500">{community.members.toLocaleString()} members</span>
+                <span className="text-sm text-gray-500">{community.members?.toLocaleString()} members</span>
               </div>
-              <button className="w-full mt-4 py-2 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition-colors">
-                Join Community
-              </button>
+              {community.isJoined ? (
+                <button className="w-full mt-4 py-2 bg-green-50 text-green-600 rounded-lg cursor-default">
+                  Joined
+                </button>
+              ) : (
+                <button
+                  className="w-full mt-4 py-2 bg-blue-50 text-blue-500 rounded-lg hover:bg-blue-100 transition-colors"
+                  onClick={() => handleJoin(community.id)}
+                  disabled={joiningId === community.id}
+                >
+                  {joiningId === community.id ? 'Joining...' : 'Join Community'}
+                </button>
+              )}
             </div>
           </div>
         ))}

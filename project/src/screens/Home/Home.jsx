@@ -125,6 +125,7 @@ export const Home = () => {
                 {[
                   { name: 'feed', icon: LayoutGrid, label: 'Feed' },
                   { name: 'messages', icon: MessageSquare, label: 'Messages' },
+                  { name: 'people', icon: Users, label: 'People' },
                   { name: 'communities', icon: Users, label: 'Communities' },
                   { name: 'jobs', icon: Briefcase, label: 'Jobs' },
                   { name: 'travel', icon: Plane, label: 'Travel Connect' },
@@ -138,7 +139,13 @@ export const Home = () => {
                         ? "text-[#3B82F6] bg-blue-50 shadow-sm" 
                         : "text-gray-600 hover:text-[#3B82F6] hover:bg-blue-50/60 hover:translate-x-1"
                     }`} 
-                    onClick={() => handleSectionClick(name)}
+                    onClick={() => {
+                      if (name === 'people') {
+                        navigate('/people');
+                      } else {
+                        handleSectionClick(name);
+                      }
+                    }}
                   >
                     <div className={`transition-transform duration-300 ${activeSection === name ? "scale-110" : "group-hover:scale-110"}`}>
                       <Icon className="w-5 h-5" />

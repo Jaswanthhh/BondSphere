@@ -1,51 +1,47 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, X, Briefcase, MapPin } from 'lucide-react';
+import { connectionRequestsApi } from '../../services/api';
 
 export const ConnectionRequests = () => {
-  const [requests, setRequests] = React.useState([
-    {
-      id: 1,
-      name: "David Chen",
-      role: "Senior Software Engineer",
-      company: "Google",
-      location: "San Francisco, CA",
-      avatar: "https://i.pravatar.cc/150?img=11",
-      mutualConnections: 12,
-      message: "Hi! I noticed we both work in tech and have similar interests. Would love to connect!",
-      timestamp: "2 days ago"
-    },
-    {
-      id: 2,
-      name: "Sarah Miller",
-      role: "Product Manager",
-      company: "Microsoft",
-      location: "Seattle, WA",
-      avatar: "https://i.pravatar.cc/150?img=9",
-      mutualConnections: 8,
-      timestamp: "3 days ago"
-    },
-    {
-      id: 3,
-      name: "James Wilson",
-      role: "UX Designer",
-      company: "Apple",
-      location: "Cupertino, CA",
-      avatar: "https://i.pravatar.cc/150?img=7",
-      mutualConnections: 15,
-      message: "Hello! I'm expanding my professional network in the design space.",
-      timestamp: "5 days ago"
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await connectionRequestsApi.getRequests();
+        setRequests(res.data);
+      } catch (err) {
+        setError('Failed to load connection requests.');
+      }
+      setLoading(false);
+    };
+    fetchRequests();
+  }, []);
+
+  const handleAccept = async (requestId) => {
+    try {
+      await connectionRequestsApi.acceptRequest(requestId);
+      setRequests(requests.filter(request => request.id !== requestId));
+    } catch (err) {
+      setError('Failed to accept request.');
     }
-  ]);
-
-  const handleAccept = (requestId) => {
-    setRequests(requests.filter(request => request.id !== requestId));
-    // In a real app, you would make an API call here
   };
 
-  const handleReject = (requestId) => {
-    setRequests(requests.filter(request => request.id !== requestId));
-    // In a real app, you would make an API call here
+  const handleReject = async (requestId) => {
+    try {
+      await connectionRequestsApi.rejectRequest(requestId);
+      setRequests(requests.filter(request => request.id !== requestId));
+    } catch (err) {
+      setError('Failed to reject request.');
+    }
   };
+
+  if (loading) return <div>Loading connection requests...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="p-6">

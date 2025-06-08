@@ -1,39 +1,49 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Search, Phone, Video } from 'lucide-react';
+import { chatApi } from '../../services/api';
 
 export const JobChat = ({ onClose }) => {
+  const [contacts, setContacts] = useState([]);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef(null);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [loadingContacts, setLoadingContacts] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [error, setError] = useState('');
 
-  const mockContacts = [
-    {
-      id: '1',
-      name: 'Sarah Wilson',
-      avatar: 'https://i.pravatar.cc/150?img=1',
-      role: 'Senior Developer',
-      company: 'TechCorp',
-      isOnline: true,
-    },
-    {
-      id: '2',
-      name: 'Michael Chen',
-      avatar: 'https://i.pravatar.cc/150?img=2',
-      role: 'Product Manager',
-      company: 'InnovateLabs',
-      isOnline: false,
-    },
-    {
-      id: '3',
-      name: 'Emma Thompson',
-      avatar: 'https://i.pravatar.cc/150?img=3',
-      role: 'UX Designer',
-      company: 'DesignHub',
-      isOnline: true,
-    },
-  ];
+  useEffect(() => {
+    const fetchContacts = async () => {
+      setLoadingContacts(true);
+      setError('');
+      try {
+        const res = await chatApi.getContacts();
+        setContacts(res.data);
+      } catch (err) {
+        setError('Failed to load contacts.');
+      }
+      setLoadingContacts(false);
+    };
+    fetchContacts();
+  }, []);
+
+  useEffect(() => {
+    if (selectedContact) {
+      const fetchMessages = async () => {
+        setLoadingMessages(true);
+        setError('');
+        try {
+          const res = await chatApi.getMessages(selectedContact.id);
+          setMessages(res.data);
+        } catch (err) {
+          setError('Failed to load messages.');
+        }
+        setLoadingMessages(false);
+      };
+      fetchMessages();
+    }
+  }, [selectedContact]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,22 +53,19 @@ export const JobChat = ({ onClose }) => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (newMessage.trim() === '') return;
-
-    const newMsg = {
-      id: Date.now().toString(),
-      senderId: 'currentUser',
-      content: newMessage,
-      timestamp: new Date(),
-    };
-
-    setMessages([...messages, newMsg]);
-    setNewMessage('');
+    if (newMessage.trim() === '' || !selectedContact) return;
+    try {
+      const res = await chatApi.sendMessage(selectedContact.id, newMessage);
+      setMessages([...messages, res.data]);
+      setNewMessage('');
+    } catch (err) {
+      setError('Failed to send message.');
+    }
   };
 
-  const filteredContacts = mockContacts.filter(contact =>
+  const filteredContacts = contacts.filter(contact =>
     contact.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -91,31 +98,39 @@ export const JobChat = ({ onClose }) => {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {filteredContacts.map(contact => (
-              <button
-                key={contact.id}
-                onClick={() => setSelectedContact(contact)}
-                className={`w-full p-3 flex items-center space-x-3 hover:bg-gray-50 ${
-                  selectedContact?.id === contact.id ? 'bg-gray-50' : ''
-                }`}
-                title={`Chat with ${contact.name}`}
-              >
-                <div className="relative">
-                  <img
-                    src={contact.avatar}
-                    alt={contact.name}
-                    className="w-10 h-10 rounded-full"
-                  />
-                  {contact.isOnline && (
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-                  )}
-                </div>
-                <div className="flex-1 text-left">
-                  <div className="font-medium">{contact.name}</div>
-                  <div className="text-sm text-gray-500">{contact.role}</div>
-                </div>
-              </button>
-            ))}
+            {loadingContacts ? (
+              <div className="text-center text-gray-500 py-8">Loading contacts...</div>
+            ) : error ? (
+              <div className="text-center text-red-500 py-8">{error}</div>
+            ) : filteredContacts.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">No contacts found</div>
+            ) : (
+              filteredContacts.map(contact => (
+                <button
+                  key={contact.id}
+                  onClick={() => setSelectedContact(contact)}
+                  className={`w-full p-3 flex items-center space-x-3 hover:bg-gray-50 ${
+                    selectedContact?.id === contact.id ? 'bg-gray-50' : ''
+                  }`}
+                  title={`Chat with ${contact.name}`}
+                >
+                  <div className="relative">
+                    <img
+                      src={contact.avatar}
+                      alt={contact.name}
+                      className="w-10 h-10 rounded-full"
+                    />
+                    {contact.isOnline && (
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                    )}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="font-medium">{contact.name}</div>
+                    <div className="text-sm text-gray-500">{contact.role}</div>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -152,24 +167,32 @@ export const JobChat = ({ onClose }) => {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4">
-                {messages.map(message => (
-                  <div
-                    key={message.id}
-                    className={`flex mb-4 ${
-                      message.senderId === 'currentUser' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
+                {loadingMessages ? (
+                  <div className="text-center text-gray-500 py-8">Loading messages...</div>
+                ) : error ? (
+                  <div className="text-center text-red-500 py-8">{error}</div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">No messages yet</div>
+                ) : (
+                  messages.map(message => (
                     <div
-                      className={`max-w-[70%] p-3 rounded-lg ${
-                        message.senderId === 'currentUser'
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100'
+                      key={message.id}
+                      className={`flex mb-4 ${
+                        message.senderId === 'currentUser' ? 'justify-end' : 'justify-start'
                       }`}
                     >
-                      {message.content}
+                      <div
+                        className={`max-w-[70%] p-3 rounded-lg ${
+                          message.senderId === 'currentUser'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100'
+                        }`}
+                      >
+                        {message.content}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
