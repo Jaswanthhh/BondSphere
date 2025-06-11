@@ -10,8 +10,8 @@ import { Settings } from "../Settings";
 import { Notifications } from "../../components/Notifications";
 import { Communities } from '../Communities';
 import { Travel } from '../Travel';
-import { Organization } from '../Organization';
 import { LocationSharing } from '../LocationSharing';
+import { users as usersApi } from '../../services/api';
 
 export const Home = () => {
   const { isAuthenticated } = useAuth();
@@ -24,6 +24,7 @@ export const Home = () => {
   });
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications] = useState(3);
+  const [userProfile, setUserProfile] = useState(null);
 
   if (!isAuthenticated) {
     return <div>Please log in</div>;
@@ -42,6 +43,18 @@ export const Home = () => {
     }
   }, [location.pathname]);
 
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const res = await usersApi.getProfile();
+        setUserProfile(res.data);
+      } catch (err) {
+        setUserProfile(null);
+      }
+    };
+    fetchUserProfile();
+  }, []);
+
   const handleLogoClick = () => {
     setActiveSection("feed");
     navigate("/home");
@@ -59,8 +72,6 @@ export const Home = () => {
         return <Jobs />;
       case 'travel':
         return <Travel />;
-      case 'organization':
-        return <Organization />;
       case 'location':
         return <LocationSharing />;
       case 'settings':
@@ -109,11 +120,15 @@ export const Home = () => {
                 onClick={() => handleSectionClick("profile")}
               >
                 <div className="relative w-12 h-12">
-                  <div className="w-12 h-12 rounded-full bg-[#BFDBFE]" />
+                  <img
+                    src={userProfile?.avatar ? (userProfile.avatar.startsWith('http') ? userProfile.avatar : `http://localhost:5000${userProfile.avatar}`) : '/default-avatar.png'}
+                    alt="Avatar"
+                    className="w-12 h-12 rounded-full object-cover bg-[#BFDBFE]"
+                  />
                   <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-[#22C55E] border-2 border-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-gray-900 font-medium">Katie Pena</h3>
+                  <h3 className="text-gray-900 font-medium">{userProfile?.fullName || 'User'}</h3>
                   <p className="text-gray-500 text-sm">Online</p>
                 </div>
               </div>
@@ -129,7 +144,6 @@ export const Home = () => {
                   { name: 'communities', icon: Users, label: 'Communities' },
                   { name: 'jobs', icon: Briefcase, label: 'Jobs' },
                   { name: 'travel', icon: Plane, label: 'Travel Connect' },
-                  { name: 'organization', icon: Building2, label: 'Organization' },
                   { name: 'location', icon: MapPin, label: 'Location Sharing' },
                 ].map(({ name, icon: Icon, label }) => (
                   <button 

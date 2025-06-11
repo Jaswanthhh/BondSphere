@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Link as LinkIcon, Calendar, Building2, GraduationCap, Briefcase, Plus, Pencil, Save, X } from 'lucide-react';
 import { users as usersApi } from '../../services/api';
 
@@ -8,15 +8,35 @@ export const JobProfile = () => {
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [profileCompletion, setProfileCompletion] = useState(0);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreview, setCoverPreview] = useState(null);
+  const avatarInputRef = useRef();
+  const coverInputRef = useRef();
 
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
       try {
-        const res = await usersApi.getProfile('me');
-        setProfileData(res.data);
-        // Calculate profile completion (simple example)
-        let fields = ['about', 'skills', 'experience', 'education', 'availability', 'preferredRole', 'salary', 'workType'];
+        const res = await usersApi.getJobProfile();
+        setProfileData({
+          title: res.data.title || '',
+          company: res.data.company || '',
+          location: res.data.location || '',
+          skills: Array.isArray(res.data.skills) ? res.data.skills : [],
+          bio: res.data.bio || '',
+          avatar: res.data.avatar || '',
+          coverImage: res.data.coverImage || '',
+          experience: Array.isArray(res.data.experience) ? res.data.experience : [],
+          education: Array.isArray(res.data.education) ? res.data.education : [],
+          availability: res.data.availability || '',
+          preferredRole: res.data.preferredRole || '',
+          salary: res.data.salary || '',
+          workType: Array.isArray(res.data.workType) ? res.data.workType : [],
+        });
+        // Calculate profile completion
+        let fields = ['title', 'company', 'location', 'skills', 'bio', 'experience', 'education', 'availability', 'preferredRole', 'salary', 'workType'];
         let filled = fields.filter(f => {
           const val = res.data[f];
           return Array.isArray(val) ? val.length > 0 : !!val;
@@ -33,12 +53,49 @@ export const JobProfile = () => {
   const handleEdit = () => setIsEditing(true);
   const handleCancel = () => {
     setIsEditing(false);
-    // Optionally refetch to reset changes
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setCoverFile(null);
+    setCoverPreview(null);
   };
   const handleSave = async () => {
     setIsEditing(false);
     try {
-      await usersApi.updateProfile(profileData._id || 'me', profileData);
+      const formData = new FormData();
+      Object.entries(profileData).forEach(([key, value]) => {
+        if (['skills', 'experience', 'education', 'workType'].includes(key)) {
+          if (Array.isArray(value) && value.length > 0) {
+            formData.append(key, JSON.stringify(value));
+          }
+        } else if (['avatar', 'coverImage'].includes(key)) {
+          // Do not send as string, only as file if changed
+        } else if (value !== undefined && value !== null && value !== '') {
+          formData.append(key, value);
+        }
+      });
+      if (avatarFile) formData.append('avatar', avatarFile);
+      if (coverFile) formData.append('coverImage', coverFile);
+      const updateRes = await usersApi.updateJobProfile(formData);
+      const res = await usersApi.getJobProfile();
+      setProfileData({
+        title: res.data.title || '',
+        company: res.data.company || '',
+        location: res.data.location || '',
+        skills: Array.isArray(res.data.skills) ? res.data.skills : [],
+        bio: res.data.bio || '',
+        avatar: res.data.avatar || '',
+        coverImage: res.data.coverImage || '',
+        experience: Array.isArray(res.data.experience) ? res.data.experience : [],
+        education: Array.isArray(res.data.education) ? res.data.education : [],
+        availability: res.data.availability || '',
+        preferredRole: res.data.preferredRole || '',
+        salary: res.data.salary || '',
+        workType: Array.isArray(res.data.workType) ? res.data.workType : [],
+      });
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setCoverFile(null);
+      setCoverPreview(null);
     } catch (err) {
       setError('Failed to update job profile');
     }
@@ -64,6 +121,20 @@ export const JobProfile = () => {
       return { ...prev, [field]: arr };
     });
   };
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+  const handleCoverChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCoverFile(file);
+      setCoverPreview(URL.createObjectURL(file));
+    }
+  };
 
   if (loading) return <div>Loading job profile...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
@@ -82,11 +153,22 @@ export const JobProfile = () => {
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
           <div className="h-48 relative">
             <img
-              src={profileData.coverImage || '/default-image.png'}
+              src={coverPreview || profileData.coverImage || '/default-image.png'}
               alt="Cover"
               className="w-full h-full object-cover"
               onError={e => { e.target.onerror = null; e.target.src = '/default-image.png'; }}
             />
+            {isEditing && (
+              <button
+                className="absolute top-4 right-12 p-2 bg-white rounded-lg shadow-sm hover:bg-gray-50"
+                aria-label="Change cover photo"
+                title="Change cover photo"
+                onClick={() => coverInputRef.current.click()}
+              >
+                <Pencil className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
+            <input type="file" accept="image/*" ref={coverInputRef} className="hidden" onChange={handleCoverChange} />
             {!isEditing && (
               <button 
                 className="absolute top-4 right-4 p-2 bg-white rounded-lg shadow-sm hover:bg-gray-50"
@@ -107,14 +189,37 @@ export const JobProfile = () => {
           <div className="px-6 pb-6">
             <div className="flex justify-between items-start -mt-16 relative mb-4">
               <div className="flex gap-4 items-end">
-                <img
-                  src={profileData.avatar || '/default-avatar.png'}
-                  alt={profileData.name}
-                  className="w-32 h-32 rounded-2xl border-4 border-white shadow-lg"
-                  onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
-                />
+                <div className="relative w-32 h-32">
+                  <img
+                    src={avatarPreview || profileData.avatar || '/default-avatar.png'}
+                    alt="Avatar"
+                    className="w-32 h-32 rounded-2xl border-4 border-white shadow-lg object-cover"
+                    onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
+                  />
+                  {isEditing && (
+                    <button
+                      className="absolute bottom-2 right-2 bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                      onClick={() => avatarInputRef.current.click()}
+                      title="Change avatar"
+                    >
+                      <Pencil className="w-5 h-5 text-gray-700" />
+                    </button>
+                  )}
+                  <input type="file" accept="image/*" ref={avatarInputRef} className="hidden" onChange={handleAvatarChange} />
+                </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{profileData.name}</h1>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="name"
+                      value={profileData.name || ''}
+                      onChange={handleInputChange}
+                      className="text-2xl font-bold border-b-2 border-blue-200 focus:border-blue-500 outline-none mb-2"
+                      placeholder="Full Name"
+                    />
+                  ) : (
+                    <h1 className="text-2xl font-bold text-gray-900">{profileData.name}</h1>
+                  )}
                   <p className="text-gray-600">{profileData.title}</p>
                 </div>
               </div>

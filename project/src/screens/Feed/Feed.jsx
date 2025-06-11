@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Image, Video, PlaySquare, Heart, MessageCircle, Share2, MoreHorizontal, Plus, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { postsApi, storiesApi } from '../../services/api';
+import { postsApi, storiesApi, users as usersApi } from '../../services/api';
+import { API_BASE_URL } from '../../config';
 
 export const Feed = () => {
   const [postContent, setPostContent] = useState('');
@@ -16,19 +17,36 @@ export const Feed = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [menuOpenPostId, setMenuOpenPostId] = useState(null);
+  const currentUserId = localStorage.getItem('userId');
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      setLoading(true);
+    const fetchCurrentUser = async () => {
       try {
-        const res = await postsApi.getAll();
-        setPosts(Array.isArray(res.data) ? res.data : []);
+        const res = await usersApi.getProfile();
+        setCurrentUser(res.data);
       } catch (err) {
-        setPosts([]);
-        setError('Failed to load posts');
+        setCurrentUser(null);
       }
-      setLoading(false);
     };
+    fetchCurrentUser();
+  }, []);
+
+  // Move fetchPosts outside useEffect
+  const fetchPosts = async () => {
+    setLoading(true);
+    try {
+      const res = await postsApi.getAll();
+      setPosts(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      setPosts([]);
+      setError('Failed to load posts');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchPosts();
   }, []);
 
@@ -148,6 +166,18 @@ export const Feed = () => {
     setCurrentStoryIndex((prev) => (prev < stories.length - 1 ? prev + 1 : 0));
   };
 
+  const handleDeletePost = async (postId) => {
+    try {
+      if (window.confirm('Are you sure you want to delete this post?')) {
+        await postsApi.deletePost(postId);
+        // Refresh the feed after deletion
+        fetchPosts();
+      }
+    } catch (error) {
+      alert(error.message || 'Failed to delete post');
+    }
+  };
+
   if (loading) return <div>Loading feed...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
 
@@ -159,8 +189,8 @@ export const Feed = () => {
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <img
-              src="https://i.pravatar.cc/150?img=12"
-              alt="Your avatar"
+              src={currentUser?.avatar ? (currentUser.avatar.startsWith('http') ? currentUser.avatar : `${API_BASE_URL}${currentUser.avatar}`) : '/default-avatar.png'}
+              alt={currentUser?.fullName || 'Your avatar'}
               className="w-10 h-10 rounded-full"
             />
             <input
@@ -240,39 +270,57 @@ export const Feed = () => {
               <div className="flex items-center gap-3">
                 <img
                   src={post.user?.avatar || '/default-avatar.png'}
-                  alt={post.user?.name || 'User'}
+                  alt={post.user?.fullName || post.user?.name || 'User'}
                   className="w-12 h-12 rounded-full"
                   onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                 />
                 <div>
-                  <h3 className="font-semibold text-gray-900">{post.user?.name || 'Anonymous'}</h3>
+                  <h3 className="font-semibold text-gray-900">{post.user?.fullName || post.user?.name || 'Anonymous'}</h3>
                   <p className="text-sm text-gray-500">{post.user?.time || 'Just now'}</p>
                 </div>
               </div>
-              <button 
-                className="text-gray-400 hover:text-gray-600"
-                aria-label="More options"
-              >
-                <MoreHorizontal className="w-6 h-6" />
-              </button>
+              <div className="relative">
+                <button
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="More options"
+                  onClick={() => setMenuOpenPostId(menuOpenPostId === post._id ? null : post._id)}
+                >
+                  <MoreHorizontal className="w-6 h-6" />
+                </button>
+                {menuOpenPostId === post._id && (
+                  <div className="absolute right-0 top-8 w-32 bg-white border rounded shadow-lg z-50">
+                    {(() => { console.log('POST USER:', post.user, 'CURRENT USER ID:', currentUserId); return null; })()}
+                    <button
+                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
+                      onClick={() => {
+                        setMenuOpenPostId(null);
+                        handleDeletePost(post._id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                    {/* Add more options here if needed */}
+                  </div>
+                )}
+              </div>
             </div>
             {post.content && <p className="text-gray-800 mb-4 whitespace-pre-line">{post.content}</p>}
             {post.media && (
               <div className="mb-4 rounded-xl overflow-hidden">
-                {post.media.type === 'image' ? (
+                {typeof post.media === 'string' && post.media.match(/\.(jpeg|jpg|png|gif|webp)$/i) ? (
                   <img
-                    src={post.media.url || '/default-image.png'}
+                    src={`${API_BASE_URL}${post.media}`}
                     alt="Post content"
                     className="w-full h-auto"
                     onError={e => { e.target.onerror = null; e.target.src = '/default-image.png'; }}
                   />
-                ) : (
+                ) : typeof post.media === 'string' && post.media.match(/\.(mp4|webm|ogg)$/i) ? (
                   <video
-                    src={post.media.url}
+                    src={`${API_BASE_URL}${post.media}`}
                     className="w-full h-auto"
                     controls
                   />
-                )}
+                ) : null}
               </div>
             )}
             <div className="flex items-center justify-between py-3 border-t border-b border-gray-100">
@@ -301,13 +349,13 @@ export const Feed = () => {
                 <div key={comment._id || comment.id} className="flex items-start gap-3">
                   <img
                     src={comment.user?.avatar || '/default-avatar.png'}
-                    alt={comment.user?.name || 'User'}
+                    alt={comment.user?.fullName || comment.user?.name || 'User'}
                     className="w-8 h-8 rounded-full"
                     onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-gray-900">{comment.user?.name || 'Anonymous'}</h4>
+                      <h4 className="font-medium text-gray-900">{comment.user?.fullName || comment.user?.name || 'Anonymous'}</h4>
                       <button 
                         className={`text-sm ${comment.isLiked ? 'text-blue-500' : 'text-gray-500'}`}
                         onClick={() => handleLikeComment(post._id, comment._id)}
@@ -322,8 +370,8 @@ export const Feed = () => {
               {/* Comment Input */}
               <div className="flex items-center gap-3 mt-4">
                 <img
-                  src="https://i.pravatar.cc/150?img=12"
-                  alt="Your avatar"
+                  src={currentUser?.avatar ? (currentUser.avatar.startsWith('http') ? currentUser.avatar : `${API_BASE_URL}${currentUser.avatar}`) : '/default-avatar.png'}
+                  alt={currentUser?.fullName || 'Your avatar'}
                   className="w-8 h-8 rounded-full"
                 />
                 <div className="flex-1 relative">

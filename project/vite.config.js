@@ -25,7 +25,10 @@ export default defineConfig({
     port: 5179,
     strictPort: false,
     open: true,
-    host: true
+    host: true,
+    proxy: {
+      '/api': 'http://localhost:5000'
+    }
   },
   build: {
     outDir: 'dist',

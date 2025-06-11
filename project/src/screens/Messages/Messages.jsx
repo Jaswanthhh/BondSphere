@@ -3,6 +3,7 @@ import { Search, Phone, Video, MoreHorizontal, ThumbsUp, Smile, PaperclipIcon, I
 import api, { users as usersApi } from '../../services/api';
 import io from 'socket.io-client';
 import { messagesApi } from '../../services/api';
+import { API_BASE_URL } from '../../config';
 
 export const Messages = () => {
   const [conversations, setConversations] = useState([]);
@@ -21,6 +22,13 @@ export const Messages = () => {
 
   const socket = useRef(null);
 
+  // Get current user ID from localStorage
+  const [currentUserId, setCurrentUserId] = useState(null);
+  useEffect(() => {
+    const id = localStorage.getItem('userId');
+    setCurrentUserId(id);
+  }, []);
+
   useEffect(() => {
     fetchConversations();
     fetchFriends();
@@ -34,7 +42,7 @@ export const Messages = () => {
       setError('Failed to load friends');
     }
   };
-
+  
   useEffect(() => {
     if (selectedUser) {
       fetchMessages(selectedUser._id);
@@ -83,6 +91,7 @@ export const Messages = () => {
       setNewMessage('');
       setSelectedMedia(null);
       scrollToBottom();
+      fetchFriends();
     } catch (err) {
       setError('Failed to send message');
     }
@@ -148,10 +157,12 @@ export const Messages = () => {
     setConversations(updatedConversations);
   };
 
-  // Merge friends and conversations for sidebar
+  // Merge friends and conversations for sidebar, only for current user
   const allContacts = [
-    ...friends.filter(f => !conversations.some(c => c.user._id === f._id)),
-    ...conversations.map(c => c.user)
+    ...friends.filter(f => f._id !== currentUserId && !conversations.some(c => c.user._id === f._id)),
+    ...conversations
+      .filter(c => c.user._id !== currentUserId)
+      .map(c => c.user)
   ];
 
   const filteredContacts = searchQuery
@@ -172,6 +183,24 @@ export const Messages = () => {
     };
   }, [selectedUser]);
 
+  // Refresh friends list when window/tab regains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchFriends();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  // When a contact is selected, fetch only messages between current user and that contact
+  const handleSelectUser = (contact) => {
+    setSelectedUser(contact);
+    setMessages([]); // Clear previous messages for privacy
+    fetchMessages(contact._id); // Fetch only messages with this user
+  };
+
   if (loading) return <div>Loading messages...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
 
@@ -188,21 +217,25 @@ export const Messages = () => {
                 className={`p-3 rounded-lg cursor-pointer hover:bg-gray-50 ${
                   selectedUser && selectedUser._id === contact._id ? 'bg-gray-100' : ''
                 }`}
-                onClick={() => setSelectedUser(contact)}
+                onClick={() => handleSelectUser(contact)}
               >
                 <div className="flex items-center gap-3">
                   <img
-                    src={contact.avatar || '/default-avatar.png'}
-                    alt={contact.fullName || contact.name}
+                    src={contact.avatar ? (contact.avatar.startsWith('http') ? contact.avatar : `${API_BASE_URL}${contact.avatar}`) : '/default-avatar.png'}
+                    alt={contact.fullName || contact.username || contact.email || 'User'}
                     className="w-12 h-12 rounded-full"
+                    onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                   />
                   <div className="flex-1">
-                    <h3 className="font-medium">{contact.fullName || contact.name}</h3>
+                    <h3 className="font-medium">{contact.fullName || contact.username || contact.email || 'User'}</h3>
+                    {contact.username && (
+                      <p className="text-sm text-gray-500">@{contact.username}</p>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
-          </div>
+            </div>
         </div>
       </div>
 
@@ -214,67 +247,75 @@ export const Messages = () => {
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src={selectedUser.avatar || '/default-avatar.png'}
-                  alt={selectedUser.name}
+                  src={selectedUser.avatar ? (selectedUser.avatar.startsWith('http') ? selectedUser.avatar : `${API_BASE_URL}${selectedUser.avatar}`) : '/default-avatar.png'}
+                  alt={selectedUser.fullName || selectedUser.username || selectedUser.email || 'User'}
                   className="w-10 h-10 rounded-full"
+                  onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
                 />
                 <div>
-                  <h3 className="font-medium">{selectedUser.name}</h3>
+                  <h3 className="font-medium">{selectedUser.fullName || selectedUser.username || selectedUser.email || 'User'}</h3>
+                  {selectedUser.username && (
+                    <p className="text-sm text-gray-500">@{selectedUser.username}</p>
+                  )}
                   <p className="text-sm text-gray-500">Online</p>
                 </div>
               </div>
               <button className="text-gray-500 hover:text-gray-700">
                 <MoreVertical className="w-5 h-5" />
-              </button>
+                </button>
             </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message._id}
-                  className={`flex ${
-                    message.sender._id === selectedUser._id ? 'justify-start' : 'justify-end'
-                  }`}
-                >
+              {messages.length === 0 ? (
+                <div className="text-gray-400 text-center">No messages yet. Start the conversation!</div>
+              ) : (
+                messages.map((message) => (
                   <div
-                    className={`max-w-[70%] rounded-lg p-3 ${
-                      message.sender._id === selectedUser._id
-                        ? 'bg-gray-100'
-                        : 'bg-blue-500 text-white'
+                    key={message._id}
+                    className={`flex ${
+                      message.sender && message.sender._id === selectedUser._id ? 'justify-start' : 'justify-end'
                     }`}
                   >
-                    {message.media && (
-                      <div className="mb-2">
-                        {message.media.type?.startsWith('image/') ? (
-                          <img
-                            src={message.media.url}
-                            alt="Message media"
-                            className="rounded-lg max-w-full"
-                          />
-                        ) : (
-                          <video
-                            src={message.media.url}
-                            controls
-                            className="rounded-lg max-w-full"
-                          />
-                        )}
-                      </div>
-                    )}
-                    <p>{message.content}</p>
-                    <span className="text-xs opacity-70 mt-1 block">
-                      {new Date(message.createdAt).toLocaleTimeString()}
-                    </span>
+                    <div
+                      className={`max-w-[70%] rounded-lg p-3 ${
+                        message.sender && message.sender._id === selectedUser._id
+                          ? 'bg-gray-100'
+                          : 'bg-blue-500 text-white'
+                      }`}
+                    >
+                      {message.media && (
+                        <div className="mb-2">
+                          {message.media.type?.startsWith('image/') ? (
+                            <img
+                              src={message.media.url}
+                              alt="Message media"
+                              className="rounded-lg max-w-full"
+                            />
+                          ) : (
+                            <video
+                              src={message.media.url}
+                              controls
+                              className="rounded-lg max-w-full"
+                            />
+                          )}
+                        </div>
+                      )}
+                      <p>{message.content || ''}</p>
+                      <span className="text-xs opacity-70 mt-1 block">
+                        {message.createdAt ? new Date(message.createdAt).toLocaleTimeString() : ''}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Message Input */}
             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200">
               <div className="flex items-center gap-2">
-                <input
+                  <input
                   type="file"
                   ref={fileInputRef}
                   className="hidden"

@@ -62,12 +62,20 @@ export const TravelList = () => {
           <Plane className="w-6 h-6 text-blue-500" />
           <h1 className="text-2xl font-semibold">Travel Connect</h1>
         </div>
-        <button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
-        >
-          Create Travel Plan
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors"
+          >
+            Add Place
+          </button>
+          <button 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+          >
+            Create Travel Plan
+          </button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -124,7 +132,7 @@ export const TravelList = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
-                        <span>{post.travelers || 1} travelers</span>
+                        <span>{Array.isArray(post.travelers) ? post.travelers.length : (post.travelers || 1)} travelers</span>
                       </div>
                     </div>
                     <p className="mt-4 text-gray-600">{post.description}</p>
@@ -139,16 +147,14 @@ export const TravelList = () => {
                       ))}
                     </div>
                   </div>
-                  {/* Delete button, only show if current user is the creator */}
-                  {post.creator && currentUserId && post.creator._id === currentUserId && (
-                    <button
-                      className="absolute top-4 right-4 p-2 bg-red-100 hover:bg-red-200 rounded-full z-10"
-                      onClick={e => { e.stopPropagation(); handleDeleteListing(post._id); }}
-                      title="Delete Listing"
-                    >
-                      <Trash2 className="w-5 h-5 text-red-600" />
-                    </button>
-                  )}
+                  {/* Delete button, always show for demo/testing */}
+                  <button
+                    className="absolute top-4 right-4 p-2 bg-red-100 hover:bg-red-200 rounded-full z-10"
+                    onClick={e => { e.stopPropagation(); handleDeleteListing(post._id); }}
+                    title="Delete Listing"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                  </button>
                 </div>
               </div>
             ))

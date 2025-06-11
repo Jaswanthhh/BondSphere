@@ -1,52 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, MapPin, Calendar, Briefcase, Building2, Globe, Linkedin, Twitter, Instagram, Facebook, Edit2, Save, X } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Edit2, Save, X, Linkedin, Twitter, Instagram, Github, Camera } from 'lucide-react';
 import { JobProfile } from './JobProfile';
 import { users as usersApi } from '../../services/api';
+import { API_BASE_URL } from '../../config';
 
 export const Profile = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
   const [profileData, setProfileData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    location: '',
+    bio: '',
     skills: [],
-    experience: [],
-    education: [],
-    availability: [],
-    preferredRole: [],
-    salary: [],
-    workType: [],
-    about: '',
     socialLinks: { linkedin: '', twitter: '', github: '' },
+    avatar: '',
+    coverImage: '',
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const fileInputRef = useRef();
 
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
       try {
-        const res = await usersApi.getProfile('me');
+        const res = await usersApi.getProfile();
         setProfileData({
           ...res.data,
-          socialLinks: {
-            linkedin: res.data?.socialLinks?.linkedin || res.data?.linkedin || '',
-            twitter: res.data?.socialLinks?.twitter || res.data?.twitter || '',
-            github: res.data?.socialLinks?.github || res.data?.github || '',
-          },
+          socialLinks: res.data.socialLinks || { linkedin: '', twitter: '', github: '' },
+          skills: Array.isArray(res.data.skills) ? res.data.skills : [],
         });
       } catch (err) {
-        setProfileData({
-          skills: [],
-          experience: [],
-          education: [],
-          availability: [],
-          preferredRole: [],
-          salary: [],
-          workType: [],
-          about: '',
-          socialLinks: { linkedin: '', twitter: '', github: '' },
-        });
         setError('Failed to load profile');
       }
       setLoading(false);
@@ -54,232 +44,284 @@ export const Profile = () => {
     fetchProfile();
   }, []);
 
-  const handleEdit = () => {
-    setIsEditing(true);
+  const handleEdit = () => setIsEditing(true);
+  const handleCancel = () => {
+    setIsEditing(false);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSocialChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData(prev => ({ ...prev, socialLinks: { ...prev.socialLinks, [name]: value } }));
+  };
+
+  const handleSkillsChange = (e) => {
+    setProfileData(prev => ({ ...prev, skills: e.target.value.split(',').map(s => s.trim()) }));
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
   };
 
   const handleSave = async () => {
     setIsEditing(false);
     try {
-      await usersApi.updateProfile(profileData._id || 'me', profileData);
+      const formData = new FormData();
+      Object.entries(profileData).forEach(([key, value]) => {
+        if (key === 'skills') {
+          formData.append('skills', JSON.stringify(value));
+        } else if (key === 'socialLinks') {
+          formData.append('socialLinks', JSON.stringify(value));
+        } else if (key === 'friends' && Array.isArray(value)) {
+          const cleanFriends = value.filter(id => !!id && id !== '');
+          formData.append('friends', JSON.stringify(cleanFriends));
+        } else if (key === 'fullName') {
+          formData.append('fullName', value);
+        } else if (key === 'avatar' || key === 'coverImage') {
+          // Only send as file if changed
+        } else if (value !== undefined && value !== null && value !== '') {
+          formData.append(key, value);
+        }
+      });
+      if (avatarFile) formData.append('avatar', avatarFile);
+      const res = await usersApi.updateProfile(formData);
+      setProfileData({
+        ...res.data,
+        socialLinks: res.data.socialLinks || { linkedin: '', twitter: '', github: '' },
+        skills: Array.isArray(res.data.skills) ? res.data.skills : [],
+      });
+      setAvatarFile(null);
+      setAvatarPreview(null);
     } catch (err) {
       setError('Failed to update profile');
     }
   };
 
-  const handleCancel = () => {
-    setIsEditing(false);
-    // Optionally refetch profile to reset changes
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setProfileData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  if (loading) return <div>Loading profile...</div>;
+  if (loading) return <div className="flex justify-center items-center h-96">Loading profile...</div>;
   if (error) return <div className="text-red-500">{error}</div>;
-  if (!profileData) return <div className="text-red-500">No profile data found.</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow">
-          {/* Profile Header */}
-          <div className="relative h-48 bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-lg">
-            <div className="absolute -bottom-16 left-8">
-              <div className="h-32 w-32 rounded-full border-4 border-white bg-white overflow-hidden">
-                <img
-                  src={profileData.avatar || '/default-avatar.png'}
-                  alt="Profile"
-                  className="h-full w-full object-cover"
-                  onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
-                />
-              </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 px-2">
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-lg overflow-hidden">
+        {/* Cover Photo */}
+        <div className="relative h-40 bg-gradient-to-r from-blue-500 to-purple-600">
+          {/* Avatar */}
+          <div className="absolute left-1/2 -bottom-16 transform -translate-x-1/2">
+            <div className="relative w-32 h-32">
+              <img
+                src={avatarPreview || (profileData.avatar ? (profileData.avatar.startsWith('http') ? profileData.avatar : `${API_BASE_URL}${profileData.avatar}`) : '/default-avatar.png')}
+                alt="Avatar"
+                className="w-32 h-32 rounded-full border-4 border-white object-cover shadow-lg"
+                onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
+              />
+              {isEditing && (
+                <button
+                  className="absolute bottom-2 right-2 bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                  onClick={() => fileInputRef.current.click()}
+                  title="Change avatar"
+                >
+                  <Camera className="w-5 h-5 text-gray-700" />
+                </button>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
-            {!isEditing && (
-              <button
-                onClick={handleEdit}
-                className="absolute top-4 right-4 p-2 bg-white rounded-full shadow hover:bg-gray-50"
-              >
-                <Edit2 className="h-5 w-5 text-gray-600" />
-              </button>
-            )}
           </div>
-
-          {/* Profile Content */}
-          <div className="pt-20 pb-8 px-8">
-            <div className="flex justify-between items-start mb-6">
+        </div>
+        {/* Edit Button */}
+        {!isEditing && (
+          <button
+            onClick={handleEdit}
+            className="absolute top-4 right-4 p-2 bg-white rounded-full shadow hover:bg-gray-50 z-10"
+            style={{ margin: 16 }}
+          >
+            <Edit2 className="h-5 w-5 text-gray-600" />
+          </button>
+        )}
+        {/* Profile Content */}
+        <div className="pt-24 pb-10 px-8">
+          <div className="flex flex-col items-center mb-6">
+            {isEditing ? (
+              <input
+                type="text"
+                name="fullName"
+                value={profileData.fullName || ''}
+                onChange={handleInputChange}
+                className="text-2xl font-bold text-center border-b-2 border-blue-200 focus:border-blue-500 outline-none mb-2"
+                placeholder="Full Name"
+              />
+            ) : (
+              <h1 className="text-2xl font-bold text-gray-900">{profileData.fullName}</h1>
+            )}
+            <p className="text-gray-500">{profileData.email}</p>
+          </div>
+          {/* Tabs */}
+          <div className="flex justify-center mb-6">
+            <button
+              onClick={() => setActiveTab('personal')}
+              className={`px-4 py-2 rounded-t-lg font-medium ${activeTab === 'personal' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-blue-600'}`}
+            >
+              Personal Info
+            </button>
+            <button
+              onClick={() => setActiveTab('job')}
+              className={`px-4 py-2 rounded-t-lg font-medium ${activeTab === 'job' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-blue-600'}`}
+            >
+              Job Profile
+            </button>
+          </div>
+          {/* Tab Content */}
+          {activeTab === 'personal' ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  {isEditing ? (
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={profileData.phone || ''}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md px-3 py-2"
+                    />
+                  ) : (
+                    <p className="text-gray-700">{profileData.phone}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="location"
+                      value={profileData.location || ''}
+                      onChange={handleInputChange}
+                      className="w-full border rounded-md px-3 py-2"
+                    />
+                  ) : (
+                    <p className="text-gray-700">{profileData.location}</p>
+                  )}
+                </div>
+              </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{profileData.name}</h1>
-                <p className="text-gray-600">{profileData.title} at {profileData.company}</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">About</label>
+                {isEditing ? (
+                  <textarea
+                    name="bio"
+                    value={profileData.bio || ''}
+                    onChange={handleInputChange}
+                    rows={3}
+                    className="w-full border rounded-md px-3 py-2"
+                  />
+                ) : (
+                  <p className="text-gray-700 whitespace-pre-line">{profileData.bio}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Skills (comma separated)</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="skills"
+                    value={Array.isArray(profileData.skills) ? profileData.skills.join(', ') : ''}
+                    onChange={handleSkillsChange}
+                    className="w-full border rounded-md px-3 py-2"
+                  />
+                ) : (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {profileData.skills.map((skill, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-600 text-sm rounded-lg">{skill}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Social Links</label>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Linkedin className="w-5 h-5 text-blue-700" />
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          name="linkedin"
+                          value={profileData.socialLinks.linkedin || ''}
+                          onChange={handleSocialChange}
+                          className="w-full border rounded-md px-2 py-1"
+                          placeholder="LinkedIn URL"
+                        />
+                      ) : (
+                        <a href={profileData.socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline">LinkedIn</a>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Twitter className="w-5 h-5 text-blue-500" />
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          name="twitter"
+                          value={profileData.socialLinks.twitter || ''}
+                          onChange={handleSocialChange}
+                          className="w-full border rounded-md px-2 py-1"
+                          placeholder="Twitter URL"
+                        />
+                      ) : (
+                        <a href={profileData.socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Twitter</a>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Github className="w-5 h-5 text-gray-800" />
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          name="github"
+                          value={profileData.socialLinks.github || ''}
+                          onChange={handleSocialChange}
+                          className="w-full border rounded-md px-2 py-1"
+                          placeholder="GitHub URL"
+                        />
+                      ) : (
+                        <a href={profileData.socialLinks.github} target="_blank" rel="noopener noreferrer" className="text-gray-800 hover:underline">GitHub</a>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
               {isEditing && (
-                <div className="flex space-x-2">
+                <div className="flex justify-end gap-2 mt-6">
                   <button
                     onClick={handleSave}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
                   >
-                    <Save className="h-5 w-5" />
+                    <Save className="inline-block w-5 h-5 mr-1" /> Save
                   </button>
                   <button
                     onClick={handleCancel}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="inline-block w-5 h-5 mr-1" /> Cancel
                   </button>
                 </div>
               )}
             </div>
-
-            {/* Tabs */}
-            <div className="border-b border-gray-200 mb-6">
-              <nav className="-mb-px flex space-x-8">
-                <button
-                  onClick={() => setActiveTab('personal')}
-                  className={`${
-                    activeTab === 'personal'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                >
-                  Personal Info
-                </button>
-                <button
-                  onClick={() => setActiveTab('job')}
-                  className={`${
-                    activeTab === 'job'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                >
-                  Job Profile
-                </button>
-              </nav>
-            </div>
-
-            {/* Tab Content */}
-            {activeTab === 'personal' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h2>
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <Mail className="h-5 w-5 text-gray-400 mr-3" />
-                      {isEditing ? (
-                        <input
-                          type="email"
-                          name="email"
-                          value={profileData.email}
-                          onChange={handleInputChange}
-                          className="flex-1 border rounded-md px-3 py-2"
-                        />
-                      ) : (
-                        <span className="text-gray-600">{profileData.email}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center">
-                      <Phone className="h-5 w-5 text-gray-400 mr-3" />
-                      {isEditing ? (
-                        <input
-                          type="tel"
-                          name="phone"
-                          value={profileData.phone}
-                          onChange={handleInputChange}
-                          className="flex-1 border rounded-md px-3 py-2"
-                        />
-                      ) : (
-                        <span className="text-gray-600">{profileData.phone}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center">
-                      <MapPin className="h-5 w-5 text-gray-400 mr-3" />
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          name="location"
-                          value={profileData.location}
-                          onChange={handleInputChange}
-                          className="flex-1 border rounded-md px-3 py-2"
-                        />
-                      ) : (
-                        <span className="text-gray-600">{profileData.location}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">About</h2>
-                  {isEditing ? (
-                    <textarea
-                      name="bio"
-                      value={profileData.bio}
-                      onChange={handleInputChange}
-                      rows={4}
-                      className="w-full border rounded-md px-3 py-2"
-                    />
-                  ) : (
-                    <p className="text-gray-600">{profileData.bio}</p>
-                  )}
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Skills</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(profileData.skills) && profileData.skills.map((skill, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Social Links</h2>
-                  <div className="space-y-2">
-                    <a
-                      href={profileData.socialLinks?.linkedin || ''}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center text-gray-600 hover:text-blue-600"
-                    >
-                      <Linkedin className="h-5 w-5 mr-2" />
-                      LinkedIn
-                    </a>
-                    <a
-                      href={profileData.socialLinks?.twitter || ''}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center text-gray-600 hover:text-blue-600"
-                    >
-                      <Twitter className="h-5 w-5 mr-2" />
-                      Twitter
-                    </a>
-                    <a
-                      href={profileData.socialLinks?.github || ''}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center text-gray-600 hover:text-blue-600"
-                    >
-                      <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                      </svg>
-                      GitHub
-                    </a>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <JobProfile />
-            )}
-          </div>
+          ) : (
+            <JobProfile />
+          )}
         </div>
       </div>
     </div>

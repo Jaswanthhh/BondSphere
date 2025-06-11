@@ -12,5 +12,6 @@ router.post('/:id/join', auth, communityController.joinCommunity);
 router.post('/:id/leave', auth, communityController.leaveCommunity);
 router.get('/:id/chat/messages', auth, communityController.getCommunityChatMessages);
 router.post('/:id/chat/messages', auth, communityController.sendCommunityChatMessage);
+router.get('/:id/members', communityController.getCommunityMembers);
 
 module.exports = router; 

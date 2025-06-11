@@ -20,6 +20,14 @@ export const Jobs = () => {
   const [showChat, setShowChat] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    title: '',
+    company: '',
+    location: '',
+    description: ''
+  });
+  const [message, setMessage] = useState('');
+  const [appliedJobs, setAppliedJobs] = useState(new Set());
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -27,7 +35,8 @@ export const Jobs = () => {
       setError("");
       try {
         const res = await jobsApi.getJobs();
-        setJobs(res.data);
+        console.log('jobs data:', res.data);
+        setJobs(Array.isArray(res.data) ? res.data : []);
         setFilteredJobs(res.data);
         setRecommendedJobs(res.data.filter(job => job.isRecommended));
       } catch (err) {
@@ -62,15 +71,37 @@ export const Jobs = () => {
     setFilteredJobs(filtered);
   };
 
-  const toggleBookmark = async (jobId) => {
-    try {
-      await jobsApi.toggleBookmark(jobId);
-      setFilteredJobs(filteredJobs.map(job =>
-        job.id === jobId ? { ...job, isBookmarked: !job.isBookmarked } : job
-      ));
-    } catch (err) {
-      setError("Failed to update bookmark.");
+  const handleChange = e => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setMessage('');
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    });
+    if (res.ok) {
+      setMessage('Job added!');
+      setForm({ title: '', company: '', location: '', description: '' });
+      fetchJobs(); // Refresh the jobs list
+    } else {
+      setMessage('Error adding job');
     }
+  };
+
+  const handleApply = (jobId) => {
+    setAppliedJobs(prev => {
+      const newAppliedJobs = new Set(prev);
+      if (newAppliedJobs.has(jobId)) {
+        newAppliedJobs.delete(jobId);
+      } else {
+        newAppliedJobs.add(jobId);
+      }
+      return newAppliedJobs;
+    });
   };
 
   if (!isAuthenticated) {
@@ -256,53 +287,54 @@ export const Jobs = () => {
 
             <div className="space-y-4">
               {filteredJobs.map((job) => (
-                <div key={job.id} className="bg-white rounded-2xl p-6 border border-gray-100 hover:border-blue-200 transition-all">
+                <div key={job._id || job.id} className="bg-white rounded-2xl p-6 border border-gray-100 hover:border-blue-200 transition-all">
                   <div className="flex items-start justify-between">
                     <div className="flex gap-4">
                       <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
                         <img 
                           src={job.logo || '/default-image.png'} 
-                          alt={`${job.company} logo`} 
+                          alt={`${job.company || 'Company'} logo`} 
                           className="w-8 h-8 object-contain"
                           onError={e => { e.target.onerror = null; e.target.src = '/default-image.png'; }}
                         />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{job.title}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{job.title || 'No Title'}</h3>
                         <div className="flex items-center gap-4 text-gray-500 text-sm">
                           <div className="flex items-center gap-1.5">
                             <Building2 className="h-4 w-4" />
-                            <span>{job.company}</span>
+                            <span>{job.company || 'N/A'}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <MapPin className="h-4 w-4" />
-                            <span>{job.location}</span>
+                            <span>{job.location || 'N/A'}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Briefcase className="h-4 w-4" />
-                            <span>{job.type}</span>
+                            <span>{job.type || 'N/A'}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <DollarSign className="h-4 w-4" />
-                            <span>{job.salary}</span>
+                            <span>{job.salary || 'N/A'}</span>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <button 
-                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors" 
-                      onClick={() => toggleBookmark(job.id)}
-                      aria-label={job.isBookmarked ? "Remove bookmark" : "Bookmark job"}
-                    >
-                      {job.isBookmarked ? (
-                        <Bookmark className="h-5 w-5 text-[#3B82F6]" fill="#3B82F6" />
-                      ) : (
-                        <BookmarkPlus className="h-5 w-5 text-gray-400 hover:text-[#3B82F6]" />
-                      )}
-                    </button>
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => handleApply(job._id || job.id)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          appliedJobs.has(job._id || job.id)
+                            ? 'bg-green-500 text-white'
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                      >
+                        {appliedJobs.has(job._id || job.id) ? 'Applied' : 'Apply'}
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {job.tags.map((tag) => (
+                    {(job.tags || []).map((tag) => (
                       <span
                         key={tag}
                         className="px-3 py-1 bg-blue-50 text-[#3B82F6] text-sm rounded-lg"
@@ -366,17 +398,18 @@ export const Jobs = () => {
                         </div>
                       </div>
                     </div>
-                    <button 
-                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors" 
-                      onClick={() => toggleBookmark(job.id)}
-                      aria-label={job.isBookmarked ? "Remove bookmark" : "Bookmark job"}
-                    >
-                      {job.isBookmarked ? (
-                        <Bookmark className="h-5 w-5 text-[#3B82F6]" fill="#3B82F6" />
-                      ) : (
-                        <BookmarkPlus className="h-5 w-5 text-gray-400 hover:text-[#3B82F6]" />
-                      )}
-                    </button>
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => handleApply(job.id)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          appliedJobs.has(job.id)
+                            ? 'bg-green-500 text-white'
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        }`}
+                      >
+                        {appliedJobs.has(job.id) ? 'Applied' : 'Apply'}
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {job.tags.map((tag) => (
@@ -397,6 +430,40 @@ export const Jobs = () => {
 
       {/* Chat Component */}
       {showChat && <JobChat onClose={() => setShowChat(false)} />}
+
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>
+        <h2>Post a New Job</h2>
+        <form onSubmit={handleSubmit} style={{ marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <input name="title" value={form.title} onChange={handleChange} placeholder="Title" required />
+          <input name="company" value={form.company} onChange={handleChange} placeholder="Company" required />
+          <input name="location" value={form.location} onChange={handleChange} placeholder="Location" />
+          <textarea name="description" value={form.description} onChange={handleChange} placeholder="Description" />
+          <button
+            type="submit"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-6 py-3 rounded-xl font-semibold shadow hover:from-blue-600 hover:to-purple-600 transition-colors"
+          >
+            Add Job
+          </button>
+          {message && <div>{message}</div>}
+        </form>
+
+        <h2>Job Listings</h2>
+        {loading ? (
+          <div>Loading...</div>
+        ) : !jobs.length ? (
+          <div>No jobs found.</div>
+        ) : (
+          jobs.map(job => (
+            <div key={job._id} style={{ border: '1px solid #ccc', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+              <h3>{job.title}</h3>
+              <p><b>Company:</b> {job.company}</p>
+              <p><b>Location:</b> {job.location}</p>
+              <p>{job.description}</p>
+              <p style={{ fontSize: 12, color: '#888' }}>Posted: {job.postedAt ? new Date(job.postedAt).toLocaleString() : 'N/A'}</p>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }; 

@@ -9,6 +9,7 @@ export const LocationSharing = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sharedLocations, setSharedLocations] = useState([]);
   const [watchId, setWatchId] = useState(null);
+  const [geoError, setGeoError] = useState(null);
 
   // Mock contacts for demonstration
   const contacts = [
@@ -21,6 +22,7 @@ export const LocationSharing = () => {
     if ('geolocation' in navigator) {
       const id = navigator.geolocation.watchPosition(
         (position) => {
+          setGeoError(null);
           const newLocation = {
             id: 'current-user',
             name: 'You',
@@ -37,6 +39,7 @@ export const LocationSharing = () => {
           });
         },
         (error) => {
+          setGeoError('Unable to access location. Please ensure location services are enabled.');
           console.error('Error getting location:', error);
           stopSharing();
         },
@@ -51,6 +54,7 @@ export const LocationSharing = () => {
       setIsSharing(true);
       setIsModalOpen(false);
     } else {
+      setGeoError('Geolocation is not supported by your browser');
       alert('Geolocation is not supported by your browser');
     }
   };
@@ -74,6 +78,7 @@ export const LocationSharing = () => {
 
   return (
     <div className="space-y-4">
+      {geoError && <div className="text-red-500">{geoError}</div>}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Location Sharing</h2>
         {!isSharing ? (

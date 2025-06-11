@@ -10,8 +10,12 @@ export const People = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('discover');
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
+    // Get current user id from localStorage or API
+    const id = localStorage.getItem('userId');
+    setCurrentUserId(id);
     fetchData();
   }, []);
 
@@ -88,10 +92,13 @@ export const People = () => {
     }
   };
 
+  // Defensive: never show yourself in the discover list
   const filteredUsers = users.filter(user =>
-    user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    user._id !== currentUserId && (
+      user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
 
   if (loading) {
@@ -188,6 +195,7 @@ export const People = () => {
                         )}
                       </div>
                     </div>
+                    {/* Defensive button logic */}
                     {user.isFriend ? (
                       <span className="text-sm text-green-600">Friends</span>
                     ) : user.hasSentRequest ? (
