@@ -16,7 +16,7 @@ export const JobFeed = () => {
       setError('');
       try {
         const res = await jobFeedApi.getFeed();
-        setPosts(res.data);
+        setPosts(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         setError('Failed to load feed.');
       }
@@ -186,37 +186,37 @@ export const JobFeed = () => {
 
       {/* Feed Posts */}
       <div className="space-y-6">
-        {posts.map((post) => (
+        {(posts || []).map((post) => (
           <div key={post.id} className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-start gap-4 mb-2">
               <img
-                src={post.author.avatar || '/default-avatar.png'}
-                alt={post.author.name}
+                src={(post.author && post.author.avatar) || '/default-avatar.png'}
+                alt={(post.author && post.author.name) || 'User'}
                 className="w-10 h-10 rounded-full"
                 onError={e => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }}
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-900">{post.author.name}</span>
-                  {post.author.isVerified && (
+                  <span className="font-semibold text-gray-900">{(post.author && post.author.name) || 'User'}</span>
+                  {post.author && post.author.isVerified && (
                     <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full">Verified</span>
                   )}
                 </div>
                 <div className="text-sm text-gray-500">
-                  {post.author.role}
-                  {post.author.company && <span> • {post.author.company}</span>}
+                  {(post.author && post.author.role) || ''}
+                  {post.author && post.author.company && <span> • {post.author.company}</span>}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  {new Date(post.timestamp).toLocaleString()}
+                  {post.timestamp ? new Date(post.timestamp).toLocaleString() : ''}
                 </div>
               </div>
             </div>
             <div className="mb-3 text-gray-800">
-              {post.content}
+              {post.content || ''}
             </div>
-            {post.images && post.images.length > 0 && (
+            {(post.images && post.images.length > 0) && (
               <div className="mb-3">
-                {post.images.map((img, idx) => (
+                {(post.images || []).map((img, idx) => (
                   <img key={idx} src={img || '/default-image.png'} alt="Post media" className="w-full rounded-xl mb-2" onError={e => { e.target.onerror = null; e.target.src = '/default-image.png'; }} />
                 ))}
               </div>
@@ -224,19 +224,19 @@ export const JobFeed = () => {
             {post.jobDetails && (
               <div className="bg-blue-50 rounded-xl p-4 mb-3 flex flex-col md:flex-row gap-4 items-start md:items-center">
                 <div className="flex-1">
-                  <div className="font-semibold text-blue-900 text-lg mb-1">{post.jobDetails.title}</div>
+                  <div className="font-semibold text-blue-900 text-lg mb-1">{post.jobDetails.title || 'No Title'}</div>
                   <div className="flex items-center gap-3 text-blue-700 text-sm mb-1">
                     <Building2 className="w-4 h-4" />
-                    <span>{post.jobDetails.company}</span>
+                    <span>{post.jobDetails.company || 'N/A'}</span>
                     <MapPin className="w-4 h-4" />
-                    <span>{post.jobDetails.location}</span>
+                    <span>{post.jobDetails.location || 'N/A'}</span>
                     <Briefcase className="w-4 h-4" />
-                    <span>{post.jobDetails.type}</span>
+                    <span>{post.jobDetails.type || 'N/A'}</span>
                     <DollarSign className="w-4 h-4" />
-                    <span>{post.jobDetails.salary}</span>
+                    <span>{post.jobDetails.salary || 'N/A'}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {post.jobDetails.tags.map((tag) => (
+                    {(post.jobDetails.tags || []).map((tag) => (
                       <span key={tag} className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
                         {tag}
                       </span>
@@ -251,15 +251,15 @@ export const JobFeed = () => {
                 onClick={() => toggleLike(post.id)}
               >
                 <ThumbsUp className="w-4 h-4" />
-                <span>{post.likes}</span>
+                <span>{post.likes || 0}</span>
               </button>
               <button className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors">
                 <MessageCircle className="w-4 h-4" />
-                <span>{post.comments}</span>
+                <span>{post.comments || 0}</span>
               </button>
               <button className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors">
                 <Share2 className="w-4 h-4" />
-                <span>{post.shares}</span>
+                <span>{post.shares || 0}</span>
               </button>
               <button
                 className={`flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors ${post.isBookmarked ? 'font-bold text-blue-600' : ''}`}

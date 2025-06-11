@@ -9,7 +9,6 @@ import { Communities, CommunityHome, CommunityDetails } from './screens/Communit
 import { Travel, TravelDetails } from './screens/Travel';
 import { Jobs } from './screens/Jobs';
 import { Analytics } from './screens/Analytics';
-import { Organization } from './screens/Organization';
 import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
 import { LocationSharing } from './screens/LocationSharing';
@@ -39,7 +38,6 @@ const App = () => {
           <Route path="travel/:listingId" element={<TravelDetails />} />
           <Route path="jobs" element={<Jobs />} />
           <Route path="analytics" element={<Analytics />} />
-          <Route path="organization" element={<Organization />} />
           <Route path="profile" element={<Profile />} />
           <Route path="settings" element={<Settings />} />
           <Route path="location" element={<LocationSharing />} />

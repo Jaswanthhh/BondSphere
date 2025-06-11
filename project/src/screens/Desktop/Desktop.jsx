@@ -35,6 +35,9 @@ export const Desktop = () => {
       // Store the token only if it exists and is not undefined/null
       if (token && token !== 'undefined') {
         localStorage.setItem('token', token);
+        if (user && user._id) {
+          localStorage.setItem('userId', user._id);
+        }
         // Update auth context
         login(email);
         if (keepLoggedIn) {

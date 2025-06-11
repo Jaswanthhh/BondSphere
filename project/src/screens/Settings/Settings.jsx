@@ -57,7 +57,7 @@ export const Settings = () => {
     const fetchSettings = async () => {
       setLoading(true);
       try {
-        const res = await usersApi.getProfile('me');
+        const res = await usersApi.getProfile();
         // Merge backend settings with defaults
         setSettings(prev => ({
           ...prev,
@@ -84,7 +84,7 @@ export const Settings = () => {
 
   const handleSave = async () => {
     try {
-      await usersApi.updateProfile('me', settings);
+      await usersApi.updateProfile(settings);
       // Show success message
     } catch (err) {
       setError('Failed to save settings');

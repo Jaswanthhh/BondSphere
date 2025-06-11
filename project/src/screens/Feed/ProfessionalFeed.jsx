@@ -16,7 +16,24 @@ export const ProfessionalFeed = () => {
       setError('');
       try {
         const res = await feedApi.getFeed();
-        setPosts(res.data);
+        const postsWithJobProfile = await Promise.all(res.data.map(async post => {
+          let jobProfile = post.user.jobProfile;
+          if (!jobProfile) {
+            jobProfile = {};
+          }
+          return {
+            ...post,
+            user: {
+              ...post.user,
+              avatar: jobProfile.avatar || post.user.avatar,
+              name: jobProfile.title || post.user.fullName || post.user.name || 'User',
+              role: jobProfile.title || '',
+              company: jobProfile.company || '',
+              location: jobProfile.location || '',
+            }
+          };
+        }));
+        setPosts(postsWithJobProfile);
       } catch (err) {
         setError('Failed to load feed.');
       }

@@ -19,9 +19,10 @@ export const JobChat = ({ onClose }) => {
       setError('');
       try {
         const res = await chatApi.getContacts();
-        setContacts(res.data);
+        console.log('chat contacts data:', res.data);
+        setContacts(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
-        setError('Failed to load contacts.');
+        setError('Failed to load chat contacts.');
       }
       setLoadingContacts(false);
     };
@@ -35,9 +36,11 @@ export const JobChat = ({ onClose }) => {
         setError('');
         try {
           const res = await chatApi.getMessages(selectedContact.id);
-          setMessages(res.data);
+          console.log('chat messages data:', res.data);
+          setMessages(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
           setError('Failed to load messages.');
+          setMessages([]);
         }
         setLoadingMessages(false);
       };
@@ -58,7 +61,7 @@ export const JobChat = ({ onClose }) => {
     if (newMessage.trim() === '' || !selectedContact) return;
     try {
       const res = await chatApi.sendMessage(selectedContact.id, newMessage);
-      setMessages([...messages, res.data]);
+      setMessages(prevMessages => [...(Array.isArray(prevMessages) ? prevMessages : []), res.data]);
       setNewMessage('');
     } catch (err) {
       setError('Failed to send message.');
@@ -66,7 +69,7 @@ export const JobChat = ({ onClose }) => {
   };
 
   const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (contact?.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -107,7 +110,7 @@ export const JobChat = ({ onClose }) => {
             ) : (
               filteredContacts.map(contact => (
                 <button
-                  key={contact.id}
+                  key={contact.id || contact._id}
                   onClick={() => setSelectedContact(contact)}
                   className={`w-full p-3 flex items-center space-x-3 hover:bg-gray-50 ${
                     selectedContact?.id === contact.id ? 'bg-gray-50' : ''
@@ -116,17 +119,17 @@ export const JobChat = ({ onClose }) => {
                 >
                   <div className="relative">
                     <img
-                      src={contact.avatar}
-                      alt={contact.name}
+                      src={contact?.avatar || '/default-avatar.png'}
+                      alt={contact?.name || 'Contact'}
                       className="w-10 h-10 rounded-full"
                     />
-                    {contact.isOnline && (
+                    {contact?.isOnline && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
                     )}
                   </div>
                   <div className="flex-1 text-left">
-                    <div className="font-medium">{contact.name}</div>
-                    <div className="text-sm text-gray-500">{contact.role}</div>
+                    <div className="font-medium">{contact?.name || 'Unknown Contact'}</div>
+                    <div className="text-sm text-gray-500">{contact?.role || 'No Role'}</div>
                   </div>
                 </button>
               ))
@@ -174,21 +177,21 @@ export const JobChat = ({ onClose }) => {
                 ) : messages.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">No messages yet</div>
                 ) : (
-                  messages.map(message => (
+                  (Array.isArray(messages) ? messages : []).map(message => (
                     <div
-                      key={message.id}
+                      key={message.id || message._id}
                       className={`flex mb-4 ${
-                        message.senderId === 'currentUser' ? 'justify-end' : 'justify-start'
+                        message?.senderId === 'currentUser' ? 'justify-end' : 'justify-start'
                       }`}
                     >
                       <div
                         className={`max-w-[70%] p-3 rounded-lg ${
-                          message.senderId === 'currentUser'
+                          message?.senderId === 'currentUser'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-100'
                         }`}
                       >
-                        {message.content}
+                        {message?.content || ''}
                       </div>
                     </div>
                   ))

@@ -42,7 +42,7 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-// Send friend request
+// Send friend request (auto-accept)
 const sendFriendRequest = async (req, res) => {
   try {
     const { targetUserId } = req.body;
@@ -57,14 +57,13 @@ const sendFriendRequest = async (req, res) => {
       return res.status(400).json({ message: 'Already friends' });
     }
 
-    // Add each other as friends immediately
+    // Auto-accept: Add each other as friends immediately
     currentUser.friends.push(targetUserId);
     targetUser.friends.push(req.user._id);
-
     await currentUser.save();
     await targetUser.save();
 
-    res.json({ message: 'Friend added successfully' });
+    res.json({ message: 'Friend added successfully (auto-accepted)' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -138,9 +137,8 @@ const rejectFriendRequest = async (req, res) => {
 const getFriendRequests = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
-      .populate('receivedFriendRequests', 'name email avatar')
-      .populate('sentFriendRequests', 'name email avatar');
-    
+      .populate('receivedFriendRequests', 'fullName username avatar email location bio linkedin twitter github website skills experience education workType availability preferredRole salary coverImage jobProfile')
+      .populate('sentFriendRequests', 'fullName username avatar email location bio linkedin twitter github website skills experience education workType availability preferredRole salary coverImage jobProfile');
     res.json({
       received: user.receivedFriendRequests,
       sent: user.sentFriendRequests
@@ -154,9 +152,60 @@ const getFriendRequests = async (req, res) => {
 const getFriends = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
-      .populate('friends', 'name email avatar');
-    
+      .populate('friends', 'fullName username avatar email location bio linkedin twitter github website skills experience education workType availability preferredRole salary coverImage jobProfile');
     res.json(user.friends);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get current user's job profile
+const getJobProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('jobProfile');
+    res.json(user.jobProfile || {});
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update current user's job profile
+const updateJobProfile = async (req, res) => {
+  try {
+    let updates = { ...req.body };
+    // Parse arrays/objects if sent as JSON strings
+    if (typeof updates.skills === 'string' && updates.skills.trim() !== '') {
+      updates.skills = JSON.parse(updates.skills);
+    } else if (typeof updates.skills === 'string') {
+      updates.skills = [];
+    }
+    if (typeof updates.experience === 'string' && updates.experience.trim() !== '') {
+      updates.experience = JSON.parse(updates.experience);
+    } else if (typeof updates.experience === 'string') {
+      updates.experience = [];
+    }
+    if (typeof updates.education === 'string' && updates.education.trim() !== '') {
+      updates.education = JSON.parse(updates.education);
+    } else if (typeof updates.education === 'string') {
+      updates.education = [];
+    }
+    if (typeof updates.workType === 'string' && updates.workType.trim() !== '') {
+      updates.workType = JSON.parse(updates.workType);
+    } else if (typeof updates.workType === 'string') {
+      updates.workType = [];
+    }
+    // Handle avatar and coverImage
+    if (req.files?.avatar?.[0]) {
+      updates.avatar = `/uploads/${req.files.avatar[0].filename}`;
+    }
+    if (req.files?.coverImage?.[0]) {
+      updates.coverImage = `/uploads/${req.files.coverImage[0].filename}`;
+    }
+    // Merge updates into existing jobProfile
+    const user = await User.findById(req.user._id);
+    user.jobProfile = { ...user.jobProfile.toObject(), ...updates };
+    await user.save();
+    res.json(user.jobProfile);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -169,5 +218,7 @@ module.exports = {
   acceptFriendRequest,
   rejectFriendRequest,
   getFriendRequests,
-  getFriends
+  getFriends,
+  getJobProfile,
+  updateJobProfile
 }; 

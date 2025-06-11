@@ -13,6 +13,15 @@ const UserSchema = new mongoose.Schema({
   website: { type: String, default: '' },
   bio: { type: String, default: '' },
   location: { type: String, default: '' },
+  about: { type: String, default: '' },
+  skills: { type: [String], default: [] },
+  experience: { type: [Object], default: [] },
+  education: { type: [Object], default: [] },
+  workType: { type: [String], default: [] },
+  availability: { type: String, default: '' },
+  preferredRole: { type: String, default: '' },
+  salary: { type: String, default: '' },
+  coverImage: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
   friends: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -26,6 +35,22 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  jobProfile: {
+    title: { type: String, default: '' },
+    company: { type: String, default: '' },
+    location: { type: String, default: '' },
+    skills: { type: [String], default: [] },
+    bio: { type: String, default: '' },
+    avatar: { type: String, default: '' },
+    coverImage: { type: String, default: '' },
+    experience: { type: [Object], default: [] },
+    education: { type: [Object], default: [] },
+    availability: { type: String, default: '' },
+    preferredRole: { type: String, default: '' },
+    salary: { type: String, default: '' },
+    workType: { type: [String], default: [] },
+    // Add more job-specific fields as needed
+  },
 });
 
 module.exports = mongoose.model('User', UserSchema); 

@@ -20,8 +20,9 @@ export const Connections = () => {
       setError('');
       try {
         const res = await connectionsApi.getConnections();
-        setConnections(res.data);
-        setFilteredConnections(res.data);
+        console.log('connections data:', res.data);
+        setConnections(Array.isArray(res.data) ? res.data : []);
+        setFilteredConnections(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         setError('Failed to load connections.');
       }
@@ -68,13 +69,13 @@ export const Connections = () => {
 
     if (groups.length > 0) {
       filtered = filtered.filter(connection =>
-        connection.groups.some(group => groups.includes(group))
+        (connection.groups || []).some(group => groups.includes(group))
       );
     }
 
     if (tags.length > 0) {
       filtered = filtered.filter(connection =>
-        connection.tags.some(tag => tags.includes(tag))
+        (connection.tags || []).some(tag => tags.includes(tag))
       );
     }
 
@@ -232,7 +233,7 @@ export const Connections = () => {
 
       {/* Connections Grid/List */}
       <div className={view === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
-        {filteredConnections.map((connection) => (
+        {(Array.isArray(filteredConnections) ? filteredConnections : []).map((connection) => (
           <div
             key={connection.id}
             className={`bg-white rounded-xl p-4 ${
@@ -246,19 +247,19 @@ export const Connections = () => {
                 className={`rounded-full ${view === 'grid' ? 'w-24 h-24 mb-4' : 'w-16 h-16'}`}
               />
               <div className={view === 'grid' ? 'w-full' : 'flex-1'}>
-                <h3 className="font-semibold text-gray-900">{connection.name}</h3>
-                <p className="text-gray-600 text-sm">{connection.role}</p>
+                <h3 className="font-semibold text-gray-900">{connection.name || ''}</h3>
+                <p className="text-gray-600 text-sm">{connection.role || ''}</p>
                 <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
                   <Briefcase className="w-4 h-4" />
-                  <span>{connection.company}</span>
+                  <span>{connection.company || ''}</span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-500 text-sm">
                   <MapPin className="w-4 h-4" />
-                  <span>{connection.location}</span>
+                  <span>{connection.location || ''}</span>
                 </div>
                 {view === 'grid' && (
                   <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                    {connection.tags.map((tag) => (
+                    {(connection.tags || []).map((tag) => (
                       <span
                         key={tag}
                         className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full"

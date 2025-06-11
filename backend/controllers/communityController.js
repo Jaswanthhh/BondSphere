@@ -141,4 +141,15 @@ exports.sendCommunityChatMessage = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error sending community chat message', error: error.message });
   }
+};
+
+// Get all members of a community
+exports.getCommunityMembers = async (req, res) => {
+  try {
+    const community = await Community.findById(req.params.id).populate('members');
+    if (!community) return res.status(404).json({ error: 'Community not found' });
+    res.json(community.members);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }; 

@@ -12,8 +12,6 @@ export const ShareLocationModal = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
 
-  if (!isOpen) return null;
-
   const filteredContacts = useMemo(
     () =>
       contacts.filter(contact =>
@@ -21,6 +19,8 @@ export const ShareLocationModal = ({
       ),
     [contacts, searchQuery]
   );
+
+  if (!isOpen) return null;
 
   const toggleContact = (id) => {
     setSelectedIds(prev => {
@@ -59,6 +59,8 @@ export const ShareLocationModal = ({
             <p>Your current location:</p>
             <p>Latitude: {currentLocation.latitude.toFixed(6)}</p>
             <p>Longitude: {currentLocation.longitude.toFixed(6)}</p>
+            {currentLocation.city && <p>City: {currentLocation.city}</p>}
+            {currentLocation.country && <p>Country: {currentLocation.country}</p>}
           </div>
         ) : (
           <div className="bg-red-50 p-3 rounded-xl mb-4 text-sm text-red-600">

@@ -66,14 +66,29 @@ export const auth = {
 
 // User endpoints
 export const users = {
-  getProfile: (userId) => api.get(`/users/${userId}`),
-  updateProfile: (userId, data) => api.put(`/users/${userId}`, data),
+  getProfile: () => api.get('/users/me'),
+  updateProfile: (data) => {
+    if (data instanceof FormData) {
+      return api.put('/users/me', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+    } else {
+      return api.put('/users/me', data);
+    }
+  },
   getAllUsers: (search = '') => api.get(`/users/discover${search ? `?search=${search}` : ''}`),
   sendFriendRequest: (userId) => api.post('/users/friend-request', { targetUserId: userId }),
   acceptFriendRequest: (userId) => api.post('/users/friend-request/accept', { requestUserId: userId }),
   rejectFriendRequest: (userId) => api.post('/users/friend-request/reject', { requestUserId: userId }),
   getFriendRequests: () => api.get('/users/friend-requests'),
   getFriends: () => api.get('/users/friends'),
+  deleteAccount: () => api.delete('/users/me'),
+  getJobProfile: () => api.get('/users/job-profile'),
+  updateJobProfile: (data) => {
+    if (data instanceof FormData) {
+      return api.put('/users/job-profile', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+    } else {
+      return api.put('/users/job-profile', data);
+    }
+  },
 };
 
 // Community endpoints
@@ -93,6 +108,14 @@ export const postsApi = {
   getAll: () => api.get('/posts'),
   createPost: (formData) => api.post('/posts', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   comment: (postId, data) => api.post(`/posts/${postId}/comments`, data),
+  deletePost: async (postId) => {
+    try {
+      const response = await api.delete(`/posts/${postId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Error deleting post' };
+    }
+  },
 };
 
 // Notification endpoints
@@ -104,19 +127,19 @@ export const notifications = {
 };
 
 export const connectionsApi = {
-  getConnections: () => api.get('/connections'),
-  sendInvite: (id) => api.post(`/connections/invite/${id}`),
-  removeConnection: (id) => api.delete(`/connections/${id}`),
+  getConnections: () => api.get('/users/connections'),
+  sendInvite: (id) => api.post(`/users/connections/invite/${id}`),
+  removeConnection: (id) => api.delete(`/users/connections/${id}`),
 };
 
 export const connectionRequestsApi = {
-  getRequests: () => api.get('/connection-requests'),
-  acceptRequest: (id) => api.post(`/connection-requests/${id}/accept`),
-  rejectRequest: (id) => api.post(`/connection-requests/${id}/reject`),
+  getRequests: () => api.get('/users/connection-requests'),
+  acceptRequest: (id) => api.post(`/users/friend-requests/${id}/accept`),
+  rejectRequest: (id) => api.post(`/users/friend-requests/${id}/reject`),
 };
 
 export const chatApi = {
-  getContacts: () => api.get('/chat/contacts'),
+  getContacts: () => api.get('/users/chat/contacts'),
   getMessages: (contactId) => api.get(`/chat/messages/${contactId}`),
   sendMessage: (contactId, message) => api.post(`/chat/messages/${contactId}`, { message }),
 };
@@ -148,17 +171,15 @@ export const travelApi = {
   getListingDetails: (listingId) => api.get(`/listings/${listingId}`),
   createListing: (data) => api.post('/listings', data),
   joinTrip: (listingId) => api.post(`/listings/${listingId}/join`),
-};
-
-export const organizationApi = {
-  getOrganization: () => api.get('/organization'),
-  updateOrganization: (organizationId, data) => api.put(`/organization/${organizationId}`, data),
+  deleteListing: (listingId) => api.delete(`/listings/${listingId}`),
 };
 
 export const locationApi = {
   getCurrentLocation: () => api.get('/location/current'),
   shareLocation: (data) => api.post('/location/share', data),
   getSharedLocations: () => api.get('/location/shared'),
+  getContacts: () => api.get('/location/contacts'),
+  updateLocation: (data) => api.post('/location/update', data),
 };
 
 export const storiesApi = {

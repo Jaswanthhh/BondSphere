@@ -17,6 +17,7 @@ const usersRoutes = require('./routes/users');
 const postsRoutes = require('./routes/posts');
 const storiesRoutes = require('./routes/stories');
 const messagesRoutes = require('./routes/messages');
+const locationRoutes = require('./routes/location');
 
 const connectDB = require('./config/db');
 
@@ -52,9 +53,13 @@ app.use('/api/users', usersRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/stories', storiesRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/location', locationRoutes);
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Add job feed placeholder route
+app.get('/api/job-feed', (req, res) => res.json([]));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -78,7 +83,7 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*', // Change to your frontend URL in production
+    origin: '*', // Adjust as needed for security
     methods: ['GET', 'POST']
   }
 });
@@ -86,17 +91,14 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
-  socket.on('joinRoom', (roomId) => {
-    socket.join(roomId);
-  });
-
-  socket.on('sendMessage', (data) => {
-    // Optionally save message to DB here
-    io.to(data.roomId).emit('message', data); // Broadcast to room
-  });
-
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+  });
+
+  // Example: Listen for a custom event
+  socket.on('sendLocation', (data) => {
+    // Broadcast to all other clients
+    socket.broadcast.emit('receiveLocation', data);
   });
 });
 

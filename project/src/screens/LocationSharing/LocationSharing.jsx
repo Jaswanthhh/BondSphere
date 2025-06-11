@@ -49,28 +49,42 @@ export const LocationSharing = () => {
     }
   }, [isSharing, currentLocation]);
 
+  const fetchGeoapifyLocation = async () => {
+    const response = await fetch("https://api.geoapify.com/v1/ipinfo?&apiKey=fe56f6247fad4b6c9f15b0816bcd37c4");
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error('Failed to fetch location from Geoapify: ' + errorText);
+    }
+    const result = await response.json();
+    console.log('Geoapify result:', result); // Debug log
+    if (!result.location) throw new Error('Geoapify did not return location: ' + JSON.stringify(result));
+    return {
+      latitude: result.location.latitude,
+      longitude: result.location.longitude,
+      city: result.city?.name,
+      country: result.country?.name,
+      timestamp: Date.now(),
+    };
+  };
+
   const updateLocation = async () => {
+    let newLocation = null;
     try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0,
-        });
-      });
-      const newLocation = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        timestamp: Date.now(),
-      };
+      newLocation = await fetchGeoapifyLocation();
       setCurrentLocation(newLocation);
-      if (isSharing) {
-        await locationApi.updateLocation(newLocation);
-        // Optionally refresh shared locations
-        fetchSharedLocations();
-      }
     } catch (err) {
-      setError('Error updating location.');
+      console.error('Geoapify location fetch error:', err);
+      setError(err.message || 'Error updating location from Geoapify.');
+      return;
+    }
+    if (isSharing) {
+      try {
+        await locationApi.updateLocation(newLocation);
+        fetchSharedLocations();
+      } catch (err) {
+        console.error('Backend update location error:', err);
+        setError('Location updated, but failed to update backend: ' + (err.message || err.toString()));
+      }
     }
   };
 
@@ -84,26 +98,24 @@ export const LocationSharing = () => {
   };
 
   const startSharing = async () => {
+    let newLocation = null;
     try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0,
-        });
-      });
-      const newLocation = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        timestamp: Date.now(),
-      };
+      newLocation = await fetchGeoapifyLocation();
       setCurrentLocation(newLocation);
       setIsSharing(true);
       setError(null);
+    } catch (err) {
+      console.error('Geoapify location fetch error:', err);
+      setError(err.message || 'Unable to access location from Geoapify.');
+      return;
+    }
+    // Only try backend update if location fetch succeeded
+    try {
       await locationApi.updateLocation(newLocation);
       fetchSharedLocations();
     } catch (err) {
-      setError('Unable to access location. Please ensure location services are enabled.');
+      console.error('Backend update location error:', err);
+      setError('Location fetched, but failed to update backend: ' + (err.message || err.toString()));
     }
   };
 
@@ -142,7 +154,7 @@ export const LocationSharing = () => {
   };
 
   if (loading) return <div>Loading location sharing...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  if (error) return <div className="text-red-500">{error.toString()}</div>;
 
   return (
     <div className="max-w-2xl mx-auto p-6">

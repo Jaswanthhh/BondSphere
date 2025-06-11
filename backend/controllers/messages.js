@@ -11,8 +11,8 @@ exports.getConversations = async (req, res) => {
       $or: [{ sender: userId }, { receiver: userId }]
     })
     .sort({ createdAt: -1 })
-    .populate('sender', 'name avatar')
-    .populate('receiver', 'name avatar');
+    .populate('sender', 'fullName username avatar email')
+    .populate('receiver', 'fullName username avatar email');
 
     // Group messages by conversation
     const conversations = {};
@@ -53,8 +53,8 @@ exports.getMessages = async (req, res) => {
       ]
     })
     .sort({ createdAt: 1 })
-    .populate('sender', 'name avatar')
-    .populate('receiver', 'name avatar');
+    .populate('sender', 'fullName username avatar email')
+    .populate('receiver', 'fullName username avatar email');
 
     // Mark messages as read
     await Message.updateMany(
@@ -98,8 +98,8 @@ exports.sendMessage = async (req, res) => {
     await message.save();
 
     const populatedMessage = await Message.findById(message._id)
-      .populate('sender', 'name avatar')
-      .populate('receiver', 'name avatar');
+      .populate('sender', 'fullName username avatar email')
+      .populate('receiver', 'fullName username avatar email');
 
     res.status(201).json(populatedMessage);
   } catch (error) {
